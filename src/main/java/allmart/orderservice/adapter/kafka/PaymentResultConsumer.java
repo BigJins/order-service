@@ -4,11 +4,13 @@ import allmart.orderservice.adapter.kafka.dto.PaymentResultMessage;
 import allmart.orderservice.application.provided.OrderCreator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+@Profile("local")
 @Component
 @RequiredArgsConstructor
 @Log4j2
