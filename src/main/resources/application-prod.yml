@@ -10,3 +10,7 @@ spring:
     properties:
       hibernate:
         format_sql: false
+
+  kafka:
+    listener:
+      auto-startup: false
