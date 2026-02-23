@@ -46,7 +46,7 @@ public class Order extends AbstractEntity {
     @AttributeOverrides({
             @AttributeOverride(name = "receiverName", column = @Column(name = "receiver_name", nullable = false, length = 50)),
             @AttributeOverride(name = "phone", column = @Column(name = "receiver_phone", nullable = false, length = 20)),
-            @AttributeOverride(name = "memo", column = @Column(name = "shipping_memo", length = 200))
+            @AttributeOverride(name = "memo", column = @Column(name = "delivery_memo", length = 200))
     })
     private ShippingInfo shippingInfo;
 
