@@ -3,9 +3,14 @@ spring:
 
   datasource:
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 10
-      connection-timeout: 5000
+      maximum-pool-size: 30
+      minimum-idle: 30          # 테스트 환경에서만. 워밍업 효과
+    #  connection-timeout: 1000  # 1s: 풀 고갈 시 빨리 드러나게(테스트용)
+      connection-timeout: 5000  # 1s: 풀 고갈 시 빨리 드러나게(테스트용)
+      validation-timeout: 500
+      idle-timeout: 600000      # 10m
+      max-lifetime: 1800000     # 30m
+      leak-detection-threshold: 30000  # 30s: 커넥션 릭 탐지(테스트용)
 
 management:
   endpoints:
