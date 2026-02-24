@@ -1,6 +1,12 @@
 spring:
   application.name: order-service
 
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 10
+      connection-timeout: 5000
+
 management:
   endpoints:
     web:
