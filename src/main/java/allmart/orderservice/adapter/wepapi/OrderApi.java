@@ -28,7 +28,7 @@ public class OrderApi {
     @GetMapping("/api/orders/{orderId}")
     public OrderResponse find(@PathVariable Long orderId) {
 
-        return OrderResponse.of(orderFinder.find(orderId));
+        return OrderResponse.of(orderFinder.findDetailById(orderId));
     }
 
 }

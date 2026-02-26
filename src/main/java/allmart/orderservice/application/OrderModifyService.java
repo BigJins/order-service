@@ -24,9 +24,8 @@ public class OrderModifyService implements OrderCreator {
     public Order create(OrderCreateRequest orderCreateRequest) {
 
         Order order = Order.create(orderCreateRequest);
-        orderRepository.save(order);
 
-        return order;
+        return orderRepository.save(order);
     }
 
     @Override

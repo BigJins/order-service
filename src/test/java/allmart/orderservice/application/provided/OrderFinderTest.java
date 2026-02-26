@@ -26,7 +26,7 @@ record OrderFinderTest(OrderFinder orderFinder, OrderCreator orderCreator, Entit
         entityManager.flush();
         entityManager.clear();
 
-        Order found = orderFinder.find(order.getId());
+        Order found = orderFinder.findDetailById(order.getId());
 
         assertThat(order.getId()).isEqualTo(found.getId());
     }

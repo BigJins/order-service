@@ -1,9 +1,12 @@
 package allmart.orderservice.adapter.wepapi.dto;
 
 import allmart.orderservice.domain.order.Order;
+import allmart.orderservice.domain.order.OrderLine;
 import allmart.orderservice.domain.order.OrderStatus;
+import allmart.orderservice.domain.order.ShippingInfo;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record OrderResponse(
         Long orderId,
@@ -11,7 +14,9 @@ public record OrderResponse(
         Long buyerId,
         long amount,
         OrderStatus status,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        ShippingInfo shippingInfo,
+        List<OrderLine> orderLines
 ) {
     public static OrderResponse of(Order order) {
         return new OrderResponse(
@@ -20,7 +25,9 @@ public record OrderResponse(
                 order.getBuyerId(),
                 order.getTotalAmount().amount(),
                 order.getStatus(),
-                order.getCreatedAt()
+                order.getCreatedAt(),
+                order.getShippingInfo(),
+                order.getOrderLines()
         );
     }
 }

@@ -16,8 +16,8 @@ public class OrderQueryService implements OrderFinder {
     private final OrderRepository orderRepository;
 
     @Override
-    public Order find(Long orderId) {
-        return orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+    public Order findDetailById(Long orderId) {
+        return orderRepository.findDetailById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
     @Override
