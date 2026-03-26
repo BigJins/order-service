@@ -9,8 +9,6 @@
 | **order-service** | 주문 생성 / 상태 관리 | 현재 레포 |
 | **pay-service** | 결제 승인 / Toss Payments 연동 | [BigJins/pay-service](https://github.com/BigJins/pay-service) |
 | **apigateway-service** | Rate Limiting / 라우팅 | [BigJins/apigateway-service](https://github.com/BigJins/apigateway-service) |
-| **config-server** | 런타임 설정 중앙 관리 | [BigJins/config-server](https://github.com/BigJins/config-server) |
-| **allmart-configs** | Config Server 설정 파일 저장소 | [BigJins/allmart-configs](https://github.com/BigJins/allmart-configs) |
 
 ## 기술 스택
 
@@ -19,7 +17,6 @@
 - **Spring Data JPA** + MySQL 8 (운영) / H2 (테스트)
 - **Apache Kafka** — 결제 결과 이벤트 수신 (`payment.result.v1`)
 - **Java 21 Virtual Threads** — I/O 대기 중 플랫폼 스레드 점유 최소화
-- **Spring Cloud Config Client** — Config Server에서 런타임 설정 주입
 - **Micrometer + Prometheus** — 메트릭 수집
 
 ## 주요 구현 포인트
