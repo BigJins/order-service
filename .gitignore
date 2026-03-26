@@ -46,4 +46,5 @@ out/
 ### Claude AI / Agent ###
 .claude/
 .agents/
-skills-lock.json
+skills-lock.jsoncompose.yaml
+prometheus.yml
