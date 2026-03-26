@@ -84,13 +84,20 @@ public class Order extends AbstractEntity {
         return order;
     }
 
-    public void markAsPaid() {
+    public void markAsPaid(long confirmedAmount) {
+        if (this.status == OrderStatus.PAID) return; // 멱등: 중복 메시지 무시
         status.validatePayable();
+        if (this.totalAmount.amount() != confirmedAmount) {
+            throw new IllegalArgumentException(
+                    "결제 금액 불일치: 주문금액=" + this.totalAmount.amount() + ", 결제금액=" + confirmedAmount
+            );
+        }
         this.status = OrderStatus.PAID;
     }
 
     public void markPaymentFailed() {
-        // 결제 대기에서만 실패로 갈 수 있게(원하면 규칙 조정 가능)
+        if (this.status == OrderStatus.PAYMENT_FAILED) return; // 멱등: 중복 메시지 무시
+        if (this.status == OrderStatus.PAID) return;           // PAID는 실패로 덮어쓰지 않음
         if (this.status != OrderStatus.PENDING_PAYMENT) {
             throw new IllegalStateException("결제 대기 상태에서만 결제 실패 처리가 가능합니다.");
         }

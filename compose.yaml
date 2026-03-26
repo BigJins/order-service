@@ -1,0 +1,24 @@
+services:
+  mysql:
+    image: 'mysql:latest'
+    environment:
+      - 'MYSQL_DATABASE=order'
+      - 'MYSQL_PASSWORD=order111'
+      - 'MYSQL_ROOT_PASSWORD=orderroot'
+      - 'MYSQL_USER=myuser'
+    ports:
+      - '3307:3306'
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

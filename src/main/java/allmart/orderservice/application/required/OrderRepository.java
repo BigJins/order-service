@@ -15,11 +15,11 @@ public interface OrderRepository extends Repository<Order, Long> {
 
     Optional<Order> findByTossOrderId(String tossOrderId);
 
-    @Query("""
-    select distinct o
-    from Order o
-    left join fetch o.orderLines
-    where o.id = :orderId
-""")
+    @Query("""                                                                                                                                                                                    
+          select distinct o
+          from Order o
+          left join fetch o.orderLines
+          where o.id = :orderId
+          """)
     Optional<Order> findDetailById(@Param("orderId")Long orderId);
 }

@@ -1,4 +1,4 @@
-package allmart.orderservice.adapter.wepapi.dto;
+package allmart.orderservice.adapter.webapi.dto;
 
 import allmart.orderservice.domain.order.Order;
 

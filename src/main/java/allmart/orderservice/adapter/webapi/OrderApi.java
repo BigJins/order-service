@@ -1,7 +1,7 @@
-package allmart.orderservice.adapter.wepapi;
+package allmart.orderservice.adapter.webapi;
 
-import allmart.orderservice.adapter.wepapi.dto.OrderCreatorResponse;
-import allmart.orderservice.adapter.wepapi.dto.OrderResponse;
+import allmart.orderservice.adapter.webapi.dto.OrderCreatorResponse;
+import allmart.orderservice.adapter.webapi.dto.OrderResponse;
 import allmart.orderservice.application.provided.OrderCreator;
 import allmart.orderservice.application.provided.OrderFinder;
 import allmart.orderservice.domain.order.Order;

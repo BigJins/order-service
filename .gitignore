@@ -42,3 +42,8 @@ out/
 
 ### spring local###
 **/application-local.yml
+
+### Claude AI / Agent ###
+.claude/
+.agents/
+skills-lock.json
