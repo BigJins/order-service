@@ -40,15 +40,15 @@ class OrderTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
         assertThat(order.getCreatedAt()).isNotNull();
         assertThat(order.getTossOrderId()).isNotBlank();
-        assertThat(order.getTotalAmount().amount()).isEqualTo(30000);
+        assertThat(order.getTotalAmount().amount()).isEqualTo(33000); // 상품 30000 + 배송비 3000
     }
-    
+
     @Test
     @DisplayName("금액이 일치하면 PAID 상태로 변경된다")
     void markAsPaid_whenAmountMatches_thenStatusBecomePaid() {
-        // given: totalAmount = 15000 * 2 = 30000
+        // given: totalAmount = 상품 15000*2=30000 + 배송비 3000 = 33000
         // when
-        order.markAsPaid(30000L);
+        order.markAsPaid(33000L);
         // then
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
     }
@@ -56,7 +56,7 @@ class OrderTest {
     @Test
     @DisplayName("결제 금액이 주문 금액과 다르면 IllegalArgumentException이 발생한다")
     void markAsPaid_whenAmountMismatches_thenThrows() {
-        // given: totalAmount = 30000, 변조된 금액 = 1
+        // given: totalAmount = 33000, 변조된 금액 = 1
         assertThatThrownBy(() -> order.markAsPaid(1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("결제 금액 불일치");
@@ -65,10 +65,10 @@ class OrderTest {
     @Test
     @DisplayName("이미 PAID 상태에서 재결제 시도하면 조용히 무시된다 (Kafka 중복 메시지 멱등 처리)")
     void markAsPaid_whenAlreadyPaid_thenIgnored() {
-        order.markAsPaid(30000L);
+        order.markAsPaid(33000L);
 
         // Kafka at-least-once: 동일 메시지 재수신 시 예외 없이 무시
-        order.markAsPaid(30000L);
+        order.markAsPaid(33000L);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
     }
