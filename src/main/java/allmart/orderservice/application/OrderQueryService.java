@@ -4,6 +4,8 @@ import allmart.orderservice.application.provided.OrderFinder;
 import allmart.orderservice.application.required.OrderRepository;
 import allmart.orderservice.domain.order.Order;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -23,5 +25,10 @@ public class OrderQueryService implements OrderFinder {
     @Override
     public Order findByTossOrderId(String tossOrderId) {
         return orderRepository.findByTossOrderId(tossOrderId).orElseThrow(() -> new RuntimeException("TossOrderId not found"));
+    }
+
+    @Override
+    public List<Order> findAll() {
+        return orderRepository.findAllWithLines();
     }
 }

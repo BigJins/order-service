@@ -33,8 +33,7 @@ public class OutboxEvent {
     private String aggregateType;
 
     // 실제 이벤트 데이터(JSON)
-    @Lob
-    @Column(name = "payload", nullable = false)
+    @Column(name = "payload", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String payload;
 
 

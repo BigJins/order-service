@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -22,4 +23,7 @@ public interface OrderRepository extends Repository<Order, Long> {
           where o.id = :orderId
           """)
     Optional<Order> findDetailById(@Param("orderId")Long orderId);
+
+    @Query("select distinct o from Order o left join fetch o.orderLines order by o.createdAt desc")
+    List<Order> findAllWithLines();
 }

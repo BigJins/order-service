@@ -1,16 +1,7 @@
+# 운영 프로파일 — JAR에 번들되는 최소 설정
+# DB, JPA, Kafka 등 런타임 설정은 config-server의 order-service-prod.yml 에서 주입
 spring:
-  datasource:
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: false
-
-  kafka:
-    listener:
-      auto-startup: false
+  config:
+    # 운영에서는 config-server 필수 (optional 제거)
+    # CONFIG_SERVER_URI: K8s Service 이름 또는 ECS 내부 주소
+    import: "configserver:${CONFIG_SERVER_URI:http://config-server:8888}"

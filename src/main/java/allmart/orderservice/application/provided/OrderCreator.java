@@ -14,4 +14,6 @@ public interface OrderCreator {
 
     void applyPaymentFailed(String tossOrderId, String paymentKey, long amount);
 
+    void applyDeliveryCompleted(Long orderId);
+
 }

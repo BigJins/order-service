@@ -4,6 +4,7 @@ import allmart.orderservice.domain.order.*;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
+@Import(ExternalClientTestConfig.class)
 record OrderCreatorTest(OrderCreator orderCreator, EntityManager entityManager) {
 
     @Test

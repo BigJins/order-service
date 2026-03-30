@@ -57,6 +57,9 @@ public class Order extends AbstractEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
     @Column(name = "confirmed_at")
     private LocalDateTime confirmAt;
 
@@ -75,11 +78,15 @@ public class Order extends AbstractEntity {
         order.createdAt = LocalDateTime.now();
         order.tossOrderId = "ORD_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
 
-        order.totalAmount = orderCreateRequest.orderLines().stream()
+        Money productTotal = orderCreateRequest.orderLines().stream()
                 .map(OrderLine::lineAmount)
                 .reduce(Money.zero(), Money::plus);
 
-        if (order.totalAmount.amount() == 0) throw new IllegalArgumentException("totalAmount is zero");
+        if (productTotal.amount() == 0) throw new IllegalArgumentException("totalAmount is zero");
+
+        // 배송비: 5만 원 이상이면 무료, 미만이면 3,000원 — 백엔드가 금액의 단일 진실 출처
+        Money shippingFee = productTotal.amount() >= 50_000 ? Money.zero() : Money.of(3_000);
+        order.totalAmount = productTotal.plus(shippingFee);
 
         return order;
     }
@@ -93,6 +100,16 @@ public class Order extends AbstractEntity {
             );
         }
         this.status = OrderStatus.PAID;
+        this.paidAt = LocalDateTime.now();
+    }
+
+    public void markAsCompleted() {
+        if (this.status == OrderStatus.CONFIRMED) return; // 멱등: 중복 메시지 무시
+        if (this.status != OrderStatus.PAID) {
+            throw new IllegalStateException("결제 완료 상태에서만 주문을 완료할 수 있습니다. 현재 상태: " + this.status);
+        }
+        this.status = OrderStatus.CONFIRMED;
+        this.confirmAt = LocalDateTime.now();
     }
 
     public void markPaymentFailed() {

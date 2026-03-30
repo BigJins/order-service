@@ -40,10 +40,11 @@ public class PaymentResultConsumer {
             JsonNode payloadNode = root.get("payload");
 
             if (payloadNode == null) {
-                throw new IllegalArgumentException("payload가 없습니다: " + value);
+                // Debezium EventRouter가 payload 컬럼 내용을 직접 Kafka value로 보낸 경우
+                return objectMapper.treeToValue(root, PaymentResultMessage.class);
             }
 
-            // payload가 문자열 JSON이라고 확정된 케이스
+            // payload 필드가 문자열 JSON으로 wrapping된 경우
             String json = objectMapper.readValue(payloadNode.toString(), String.class);
             return objectMapper.readValue(json, PaymentResultMessage.class);
 

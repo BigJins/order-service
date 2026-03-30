@@ -1,38 +1,12 @@
 spring:
-  application.name: order-service
+  application:
+    name: order-service
   config:
-    import: optional:configserver:http://localhost:8888
-  threads:
-    virtual:
-      enabled: true
-
-  datasource:
-    hikari:
-      maximum-pool-size: 30
-      minimum-idle: 30          # 테스트 환경에서만. 워밍업 효과
-    #  connection-timeout: 1000  # 1s: 풀 고갈 시 빨리 드러나게(테스트용)
-      connection-timeout: 5000  # 1s: 풀 고갈 시 빨리 드러나게(테스트용)
-      validation-timeout: 500
-      idle-timeout: 600000      # 10m
-      max-lifetime: 1800000     # 30m
-      leak-detection-threshold: 30000  # 30s: 커넥션 릭 탐지(테스트용)
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus,refresh
-  endpoint:
-    health:
-      show-details: always
-  metrics:
-    tags:
-      application: ${spring.application.name}
-    distribution:
-      percentiles:
-        http.server.requests: 0.95, 0.99
-      percentiles-histogram:
-        http.server.requests: true
+    import: "optional:configserver:http://localhost:8888"
 
 server:
   port: 8081
+
+kafka:
+  topics:
+    delivery-completed: delivery.completed.v1
