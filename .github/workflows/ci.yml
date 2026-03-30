@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-test:
     name: Build & Test
@@ -28,6 +31,9 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-
+
+      - name: gradlew 실행 권한 부여
+        run: chmod +x gradlew
 
       - name: 빌드 + 테스트 + SpotBugs
         run: ./gradlew build

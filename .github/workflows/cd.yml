@@ -5,6 +5,7 @@ on:
     branches: [ master ]
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   AWS_REGION: ap-northeast-2
   ECR_REGISTRY: 646596232446.dkr.ecr.ap-northeast-2.amazonaws.com
   ECR_REPOSITORY: order-service
@@ -15,7 +16,6 @@ jobs:
   deploy:
     name: Deploy to ECS
     runs-on: ubuntu-latest
-    needs: []   # CI 워크플로우와 독립 실행 (ci.yml이 같은 push에 함께 트리거됨)
 
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +34,9 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-
+
+      - name: gradlew 실행 권한 부여
+        run: chmod +x gradlew
 
       - name: JAR 빌드 (테스트 제외)
         run: ./gradlew bootJar -x test
