@@ -9,4 +9,6 @@ server:
 
 kafka:
   topics:
+    payment-result: payment.result.v1
+    order-paid: order.paid.v1
     delivery-completed: delivery.completed.v1

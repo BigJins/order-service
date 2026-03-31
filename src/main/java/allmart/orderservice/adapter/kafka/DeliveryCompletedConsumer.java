@@ -4,7 +4,6 @@ import allmart.orderservice.adapter.kafka.dto.DeliveryCompletedMessage;
 import allmart.orderservice.application.provided.OrderCreator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -13,7 +12,6 @@ import tools.jackson.databind.ObjectMapper;
  * delivery.completed.v1 이벤트 수신
  * 배달 완료 시 주문을 CONFIRMED(완료) 상태로 전이
  */
-@Profile("local")
 @Component
 @RequiredArgsConstructor
 @Log4j2

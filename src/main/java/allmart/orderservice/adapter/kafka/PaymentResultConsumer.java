@@ -4,13 +4,11 @@ import allmart.orderservice.adapter.kafka.dto.PaymentResultMessage;
 import allmart.orderservice.application.provided.OrderCreator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@Profile("local")
 @Component
 @RequiredArgsConstructor
 @Log4j2
@@ -19,7 +17,7 @@ public class PaymentResultConsumer {
     private final ObjectMapper objectMapper;
     private final OrderCreator orderCreator;
 
-    @KafkaListener(topics = "payment.result.v1", groupId = "order-service")
+    @KafkaListener(topics = "${kafka.topics.payment-result}", groupId = "order-service")
     public void onMessage(String value) {
 
         log.info("payment.result raw value {}", value);
