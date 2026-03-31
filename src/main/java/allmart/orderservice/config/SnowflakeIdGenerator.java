@@ -13,7 +13,7 @@ import java.util.EnumSet;
  * [타임스탬프 45bit][머신ID 10bit][일련번호 8bit]
  * machine-id: 환경변수 SNOWFLAKE_MACHINE_ID (기본값 1)
  */
-public class SnowflakeIdGenerator implements BeforeExecutionGenerator {
+public final class SnowflakeIdGenerator implements BeforeExecutionGenerator {
 
     private static final long EPOCH         = 1700000000000L;
     private static final long MACHINE_BITS  = 10L;
@@ -26,7 +26,11 @@ public class SnowflakeIdGenerator implements BeforeExecutionGenerator {
 
     public SnowflakeIdGenerator(SnowflakeGenerated annotation, Member member, GeneratorCreationContext context) {
         String env = System.getenv("SNOWFLAKE_MACHINE_ID");
-        this.machineId = (env != null && !env.isBlank()) ? Long.parseLong(env) : 1L;
+        long id = 1L;
+        if (env != null && !env.isBlank()) {
+            try { id = Long.parseLong(env.trim()); } catch (NumberFormatException ignored) { }
+        }
+        this.machineId = id;
     }
 
     @Override
