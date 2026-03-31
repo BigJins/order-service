@@ -1,5 +1,6 @@
 package allmart.orderservice.domain.event;
 
+import allmart.orderservice.config.SnowflakeGenerated;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -17,7 +18,7 @@ import java.time.LocalDateTime;
 public class OutboxEvent {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @SnowflakeGenerated
     private Long id;
 
     // ORDER_CREATED 같은 타입

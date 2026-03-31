@@ -1,8 +1,7 @@
 package allmart.orderservice.domain;
 
+import allmart.orderservice.config.SnowflakeGenerated;
 import jakarta.annotation.Nullable;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
@@ -15,7 +14,7 @@ import java.util.Objects;
 @ToString
 public abstract class AbstractEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @SnowflakeGenerated
     @Getter(onMethod_ = {@Nullable})
     private Long id;
 
