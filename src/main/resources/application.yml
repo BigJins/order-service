@@ -7,15 +7,6 @@ spring:
 server:
   port: 8081
 
-management:
-  tracing:
-    sampling:
-      probability: 1.0   # 로컬: 100% 샘플링. 운영: 0.1 (10%) 권장
-  otlp:
-    tracing:
-      # EC2 배포 시: TEMPO_ENDPOINT=http://{모니터링EC2-IP}:4318/v1/traces
-      endpoint: ${TEMPO_ENDPOINT:http://localhost:4318/v1/traces}
-
 kafka:
   topics:
     payment-result: payment.result.v1
