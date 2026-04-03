@@ -118,7 +118,7 @@ function buildOrderPayload() {
     orderLines: products.map(p => ({
       productId:           p.id,
       productNameSnapshot: p.name,
-      unitPrice:           { amount: p.price },
+      unitPrice:           p.price,
       quantity:            Math.floor(Math.random() * 3) + 1,
     })),
     deliverySnapshot: {
@@ -168,10 +168,11 @@ export default function () {
 
     if (ok) {
       try {
-        const body = JSON.parse(res.body);
-        if (body.orderId) {
-          createdOrderIds.push(body.orderId);
-          // 최근 1000건만 유지
+        // Snowflake ID는 JS Number 정밀도(2^53) 초과 → JSON.parse 사용 안 함
+        // regex로 raw body에서 orderId 문자열 추출
+        const match = res.body.match(/"orderId"\s*:\s*(\d+)/);
+        if (match) {
+          createdOrderIds.push(match[1]);          // 문자열로 보관
           if (createdOrderIds.length > 1000) createdOrderIds.shift();
         }
         ordersCreated.add(1);
@@ -200,7 +201,7 @@ export default function () {
       '상세 조회 200':     () => ok,
       'orderId 일치':      () => {
         if (!ok) return true;
-        try { return JSON.parse(res.body).orderId === orderId; } catch { return false; }
+        try { return res.body.includes(`"orderId":${orderId}`) || res.body.includes(`"orderId": ${orderId}`); } catch { return false; }
       },
       'orderLines 존재':   () => {
         if (!ok) return true;

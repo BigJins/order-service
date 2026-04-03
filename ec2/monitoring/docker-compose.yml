@@ -30,6 +30,7 @@ services:
 
   loki:
     image: grafana/loki:3.4.2
+    user: "0"
     ports:
       - "3100:3100"
     volumes:

@@ -34,6 +34,18 @@ spring:
     bootstrap-servers: localhost:9092  # stub 모드에서 Kafka 미사용 — 연결 실패 무시
     consumer:
       auto-startup: false              # Kafka 컨슈머 비활성 (stub 모드)
+    admin:
+      operation-timeout: 3             # Kafka 미기동 시 3초 후 포기 (기본값 수십 초)
+      fail-fast: false                 # Kafka 없어도 기동 실패 안 함
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  health:
+    kafka:
+      enabled: false                   # Kafka 헬스체크 제외 (stub 모드에서 DOWN 방지)
 
 logging:
   level:
