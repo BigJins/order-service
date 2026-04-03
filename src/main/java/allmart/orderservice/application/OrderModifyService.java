@@ -13,14 +13,14 @@ import allmart.orderservice.domain.order.OrderCreateRequest;
 import allmart.orderservice.domain.order.OrderLine;
 import allmart.orderservice.domain.order.OrderPayMethod;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 
-@Log4j2
+@Slf4j
 @Service
 @Transactional
 @Validated
