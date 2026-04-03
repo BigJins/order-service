@@ -45,6 +45,7 @@ dependencies {
 
     // Tempo — 분산 추적 (Micrometer → OpenTelemetry → OTLP)
     // Spring Boot 4.0: OTLP 트레이싱 AutoConfiguration이 별도 모듈로 분리됨
+    implementation("org.springframework.boot:spring-boot-opentelemetry")
     implementation("org.springframework.boot:spring-boot-micrometer-tracing")
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
