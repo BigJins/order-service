@@ -47,13 +47,15 @@ public class OrderModifyService implements OrderCreator {
         reserveInventory(order);
 
         Order saved = orderRepository.save(order);
-        log.info("주문 생성: orderId={}, tossOrderId={}, buyerId={}, payMethod={}", saved.getId(), saved.getTossOrderId(), saved.getBuyerId(), saved.getPayMethod());
+        log.info("주문 생성 완료: orderId={}, tossOrderId={}, buyerId={}, payMethod={}, totalAmount={}, status={}",
+                saved.getId(), saved.getTossOrderId(), saved.getBuyerId(),
+                saved.getPayMethod(), saved.getTotalAmount().amount(), saved.getStatus());
 
         // 후불 현금은 pay-service를 거치지 않으므로 주문 생성 시점에 즉시 배송 트리거
         if (saved.getPayMethod() == OrderPayMethod.CASH_ON_DELIVERY) {
             outboxEventPublisher.publishOrderPaid(saved);
             confirmInventory(saved.getTossOrderId());
-            log.info("후불 현금 — 배송 즉시 트리거: orderId={}", saved.getId());
+            log.info("후불 현금 — 배송 즉시 트리거: orderId={}, tossOrderId={}", saved.getId(), saved.getTossOrderId());
         }
 
         return saved;
@@ -70,7 +72,7 @@ public class OrderModifyService implements OrderCreator {
         order.markAsPaid(amount);
         outboxEventPublisher.publishOrderPaid(order);  // Outbox: order.paid.v1 저장 (같은 트랜잭션)
         confirmInventory(tossOrderId);
-        log.info("결제 완료 처리: tossOrderId={}, orderId={}", tossOrderId, order.getId());
+        log.info("결제 완료: tossOrderId={}, orderId={}, buyerId={}, amount={}", tossOrderId, order.getId(), order.getBuyerId(), amount);
     }
 
     @Override
@@ -83,7 +85,7 @@ public class OrderModifyService implements OrderCreator {
 
         order.markPaymentFailed();
         releaseInventory(tossOrderId);
-        log.info("결제 실패 처리: tossOrderId={}, orderId={}", tossOrderId, order.getId());
+        log.warn("결제 실패: tossOrderId={}, orderId={}, buyerId={}", tossOrderId, order.getId(), order.getBuyerId());
     }
 
     @Override
@@ -94,7 +96,7 @@ public class OrderModifyService implements OrderCreator {
             return;
         }
         order.markAsCompleted();
-        log.info("배달 완료 처리: orderId={}", orderId);
+        log.info("배달 완료 → 주문 CONFIRMED: orderId={}, buyerId={}", orderId, order.getBuyerId());
     }
 
     @Override
@@ -104,7 +106,7 @@ public class OrderModifyService implements OrderCreator {
         order.confirmCashPayment();
         outboxEventPublisher.publishOrderPaid(order); // 배송 생성 트리거
         confirmInventory(order.getTossOrderId());     // 재고 확정 (RESERVED → DEDUCTED)
-        log.info("현금 선불 확인: orderId={}", orderId);
+        log.info("현금 선불 확인 → PAID: orderId={}, tossOrderId={}", orderId, order.getTossOrderId());
     }
 
     @Override
@@ -114,8 +116,10 @@ public class OrderModifyService implements OrderCreator {
         if (!order.getBuyerId().equals(buyerId)) {
             throw new IllegalStateException("본인의 주문만 재결제할 수 있습니다.");
         }
+        String oldTossOrderId = order.getTossOrderId();
         order.retryPayment();
-        log.info("재결제 요청: orderId={}, 신규 tossOrderId={}", orderId, order.getTossOrderId());
+        log.info("재결제 요청 → PENDING_PAYMENT: orderId={}, buyerId={}, 구 tossOrderId={}, 신 tossOrderId={}",
+                orderId, buyerId, oldTossOrderId, order.getTossOrderId());
     }
 
     private void validatePrices(Order order) {

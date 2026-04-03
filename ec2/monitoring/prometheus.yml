@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # setup.sh 실행 시 각 *_IP_PLACEHOLDER를 실제 IP로 치환
+  # ECS 태스크 내부 IP 또는 ALB DNS 사용 가능
+
+  - job_name: order-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["ORDER_SERVICE_IP_PLACEHOLDER:8081"]
+        labels:
+          application: order-service
+
+  - job_name: pay-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["PAY_SERVICE_IP_PLACEHOLDER:8080"]
+        labels:
+          application: pay-service
+
+  - job_name: auth-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["AUTH_SERVICE_IP_PLACEHOLDER:8082"]
+        labels:
+          application: auth-service
+
+  - job_name: product-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["PRODUCT_SERVICE_IP_PLACEHOLDER:8083"]
+        labels:
+          application: product-service
+
+  - job_name: delivery-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["DELIVERY_SERVICE_IP_PLACEHOLDER:8084"]
+        labels:
+          application: delivery-service
+
+  - job_name: inventory-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["INVENTORY_SERVICE_IP_PLACEHOLDER:8085"]
+        labels:
+          application: inventory-service
+
+  - job_name: apigateway-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["APIGATEWAY_SERVICE_IP_PLACEHOLDER:8000"]
+        labels:
+          application: apigateway-service

@@ -51,6 +51,19 @@ services:
     command: -config.file=/etc/tempo.yaml
     restart: unless-stopped
 
+  promtail:
+    image: grafana/promtail:3.4.2
+    ports:
+      - "9080:9080"
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     ports:
