@@ -7,6 +7,7 @@ import allmart.orderservice.adapter.client.dto.ProductPriceResponse;
 import allmart.orderservice.application.provided.OrderCreator;
 import allmart.orderservice.application.required.OrderRepository;
 import allmart.orderservice.application.required.OutboxEventPublisher;
+import allmart.orderservice.domain.order.OrderNotFoundException;
 import allmart.orderservice.domain.order.Order;
 import allmart.orderservice.domain.order.OrderCreateRequest;
 import allmart.orderservice.domain.order.OrderLine;
@@ -107,9 +108,12 @@ public class OrderModifyService implements OrderCreator {
     }
 
     @Override
-    public void retryPayment(Long orderId) {
+    public void retryPayment(Long orderId, Long buyerId) {
         Order order = orderRepository.findDetailById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다: " + orderId));
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new IllegalStateException("본인의 주문만 재결제할 수 있습니다.");
+        }
         order.retryPayment();
         log.info("재결제 요청: orderId={}, 신규 tossOrderId={}", orderId, order.getTossOrderId());
     }

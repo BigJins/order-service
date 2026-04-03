@@ -3,6 +3,7 @@ package allmart.orderservice.application;
 import allmart.orderservice.application.provided.OrderFinder;
 import allmart.orderservice.application.required.OrderRepository;
 import allmart.orderservice.domain.order.Order;
+import allmart.orderservice.domain.order.OrderNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
@@ -19,12 +20,12 @@ public class OrderQueryService implements OrderFinder {
 
     @Override
     public Order findDetailById(Long orderId) {
-        return orderRepository.findDetailById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+        return orderRepository.findDetailById(orderId).orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 
     @Override
     public Order findByTossOrderId(String tossOrderId) {
-        return orderRepository.findByTossOrderId(tossOrderId).orElseThrow(() -> new RuntimeException("TossOrderId not found"));
+        return orderRepository.findByTossOrderId(tossOrderId).orElseThrow(() -> new OrderNotFoundException(tossOrderId));
     }
 
     @Override

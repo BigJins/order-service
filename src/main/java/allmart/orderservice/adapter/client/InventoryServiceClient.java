@@ -11,7 +11,6 @@ import org.springframework.web.client.RestClient;
  */
 @Component
 @RequiredArgsConstructor
-@org.springframework.context.annotation.Profile("!stub")
 public class InventoryServiceClient {
 
     private final RestClient inventoryServiceRestClient;

@@ -19,6 +19,6 @@ public interface OrderCreator {
     /** 현금 선불 — 판매자가 현금 수령 확인 */
     void confirmCashPayment(Long orderId);
 
-    /** 결제 실패 후 재결제 요청 */
-    void retryPayment(Long orderId);
+    /** 결제 실패 후 재결제 요청 — buyerId로 본인 주문 여부 검증 */
+    void retryPayment(Long orderId, Long buyerId);
 }

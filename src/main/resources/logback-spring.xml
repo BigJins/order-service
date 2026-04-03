@@ -1,36 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-  <!-- 콘솔 출력 -->
   <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
       <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} traceId=%X{traceId} - %msg%n</pattern>
     </encoder>
   </appender>
 
-  <!-- Loki 앱엔더 — 항상 정의, LOKI_URL 환경변수로 주소 지정
-       로컬: 기본값 localhost:3100
-       EC2:  -DLOKI_URL=http://{모니터링EC2-IP}:3100 로 JVM 옵션 전달
-       Loki 미기동 시 연결 실패는 무시되고 콘솔만 출력됨 -->
-  <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
-    <http>
-      <url>${LOKI_URL:-http://localhost:3100}/loki/api/v1/push</url>
-    </http>
-    <format>
-      <label>
-        <pattern>app=order-service,level=%level,host=${HOSTNAME:-local}</pattern>
-      </label>
-      <message>
-        <!-- datasource.yml regex: "traceId":"(\w+)" — 반드시 이 형식 유지 -->
-        <pattern>{"timestamp":"%d{ISO8601}","level":"%level","logger":"%logger{36}","traceId":"%X{traceId}","spanId":"%X{spanId}","thread":"%thread","message":"%message%replace(%ex{short}){'[\r\n]+', ' '}"}</pattern>
-      </message>
-      <sortByTime>true</sortByTime>
-    </format>
-  </appender>
-
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
-    <appender-ref ref="LOKI"/>
   </root>
 
 </configuration>

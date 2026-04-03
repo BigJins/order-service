@@ -67,7 +67,8 @@ public class OrderApi {
     public void retryPayment(
             @PathVariable Long orderId,
             @RequestHeader(value = "X-User-Id", required = false) Long buyerIdFromGateway) {
-        orderCreator.retryPayment(orderId);
+        if (buyerIdFromGateway == null) throw new IllegalStateException("인증 정보가 없습니다.");
+        orderCreator.retryPayment(orderId, buyerIdFromGateway);
     }
 
 }

@@ -75,4 +75,93 @@ class OrderTest {
         Order bigOrder = Order.create(bigReq);
         assertThat(bigOrder.getTotalAmount().amount()).isEqualTo(60000);
     }
+
+    @Test
+    @DisplayName("CASH_ON_DELIVERY 주문은 생성 시 즉시 PAID 상태")
+    void createOrder_cashOnDelivery_isAlreadyPaid() {
+        OrderCreateRequest codReq = new OrderCreateRequest(
+                buyerId, OrderPayMethod.CASH_ON_DELIVERY, orderLines, deliverySnapshot, martSnapshot, null);
+        Order codOrder = Order.create(codReq);
+        assertThat(codOrder.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(codOrder.getPaidAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("결제 실패 처리 시 PAYMENT_FAILED 상태로 변경된다")
+    void markPaymentFailed_thenStatusBecomesPaymentFailed() {
+        order.markPaymentFailed();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+    }
+
+    @Test
+    @DisplayName("이미 PAYMENT_FAILED 상태에서 재호출해도 멱등 처리된다")
+    void markPaymentFailed_whenAlreadyFailed_thenIgnored() {
+        order.markPaymentFailed();
+        order.markPaymentFailed();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+    }
+
+    @Test
+    @DisplayName("결제 완료 후 배달 완료 시 CONFIRMED 상태로 변경된다")
+    void markAsCompleted_whenPaid_thenStatusBecomesConfirmed() {
+        order.markAsPaid(33000L);
+        order.markAsCompleted();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(order.getConfirmedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("PAID 상태가 아닐 때 완료 처리하면 예외가 발생한다")
+    void markAsCompleted_whenNotPaid_thenThrows() {
+        assertThatThrownBy(() -> order.markAsCompleted())
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("이미 CONFIRMED 상태에서 재호출해도 멱등 처리된다")
+    void markAsCompleted_whenAlreadyConfirmed_thenIgnored() {
+        order.markAsPaid(33000L);
+        order.markAsCompleted();
+        order.markAsCompleted();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+    }
+
+    @Test
+    @DisplayName("현금 선불 확인 시 PAID 상태로 변경된다")
+    void confirmCashPayment_thenStatusBecomesPaid() {
+        OrderCreateRequest cashReq = new OrderCreateRequest(
+                buyerId, OrderPayMethod.CASH_PREPAID, orderLines, deliverySnapshot, martSnapshot, null);
+        Order cashOrder = Order.create(cashReq);
+
+        cashOrder.confirmCashPayment();
+
+        assertThat(cashOrder.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(cashOrder.getPaidAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("CASH_PREPAID 외 결제수단에 현금 선불 확인하면 예외가 발생한다")
+    void confirmCashPayment_whenNotCashPrepaid_thenThrows() {
+        assertThatThrownBy(() -> order.confirmCashPayment())
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("결제 실패 후 재결제 요청 시 PENDING_PAYMENT 로 복귀하고 tossOrderId가 재발급된다")
+    void retryPayment_thenStatusReturnsToPendingAndTossOrderIdRenewed() {
+        String originalTossOrderId = order.getTossOrderId();
+        order.markPaymentFailed();
+
+        order.retryPayment();
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
+        assertThat(order.getTossOrderId()).isNotEqualTo(originalTossOrderId);
+    }
+
+    @Test
+    @DisplayName("PAYMENT_FAILED 상태가 아닐 때 재결제 요청하면 예외가 발생한다")
+    void retryPayment_whenNotPaymentFailed_thenThrows() {
+        assertThatThrownBy(() -> order.retryPayment())
+                .isInstanceOf(IllegalStateException.class);
+    }
 }
