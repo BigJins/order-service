@@ -12,7 +12,7 @@
     {
       "id": 1, "title": "RPS (엔드포인트별)", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":0,"y":1},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {"defaults": {"unit":"reqps","color":{"mode":"palette-classic"}},"overrides":[]},
       "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
       "targets": [
@@ -27,7 +27,7 @@
     {
       "id": 2, "title": "응답시간 최대값 (ms) — histogram 활성화 후 P95로 교체됨", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":12,"y":1},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {
         "defaults": {"unit":"ms","color":{"mode":"palette-classic"},
           "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":300},{"color":"red","value":1000}]}},
@@ -51,7 +51,7 @@
     {
       "id": 3, "title": "HTTP 상태코드별 요청 수", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":0,"y":9},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {
         "defaults": {"unit":"reqps","color":{"mode":"palette-classic"}},
         "overrides": [
@@ -81,7 +81,7 @@
     {
       "id": 4, "title": "k6 VU 수 & 처리량", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":12,"y":9},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {
         "defaults": {"color":{"mode":"palette-classic"}},
         "overrides": [
@@ -117,7 +117,7 @@
     {
       "id": 14, "title": "k6 응답시간 P99 (ms)", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":0,"y":17},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {
         "defaults": {"unit":"ms","color":{"mode":"palette-classic"},
           "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":500},{"color":"red","value":1000}]}},
@@ -146,7 +146,7 @@
     {
       "id": 15, "title": "k6 주문 생성 건수", "type": "stat",
       "gridPos": {"h":8,"w":12,"x":12,"y":17},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {
         "defaults": {"unit":"short","color":{"mode":"thresholds"},"thresholds":{"steps":[{"color":"blue","value":null}]}},
         "overrides":[]
@@ -171,7 +171,7 @@
     {
       "id": 5, "title": "HikariCP 커넥션 상태 (pool-size=15)", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":0,"y":26},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {
         "defaults": {"color":{"mode":"palette-classic"},"min":0},
         "overrides": [
@@ -191,7 +191,7 @@
     {
       "id": 6, "title": "DB 커넥션 획득 시간 (ms)", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":12,"y":26},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {
         "defaults": {"unit":"ms","color":{"mode":"palette-classic"},
           "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":50},{"color":"red","value":200}]}},
@@ -217,7 +217,7 @@
     {
       "id": 7, "title": "JVM 스레드 (Virtual Thread 효과)", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":0,"y":35},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"}},"overrides":[]},
       "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
       "targets": [
@@ -230,7 +230,7 @@
     {
       "id": 8, "title": "JVM Heap 메모리 (bytes)", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":12,"y":35},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "datasource": {"type":"prometheus","uid":"prometheus"},
       "fieldConfig": {"defaults": {"unit":"bytes","color":{"mode":"palette-classic"}},"overrides":[]},
       "options": {"tooltip":{"mode":"multi"}},
       "targets": [
@@ -246,7 +246,7 @@
       "title": "order-service 로그 (traceId 클릭 → Tempo)",
       "type": "logs",
       "gridPos": {"h":12,"w":24,"x":0,"y":44},
-      "datasource": {"type":"loki","uid":"P8E80F9AEF21F6940"},
+      "datasource": {"type":"loki","uid":"loki"},
       "options": {
         "showTime": true,
         "showLabels": false,
@@ -271,7 +271,7 @@
       "title": "ERROR 로그만",
       "type": "logs",
       "gridPos": {"h":8,"w":24,"x":0,"y":56},
-      "datasource": {"type":"loki","uid":"P8E80F9AEF21F6940"},
+      "datasource": {"type":"loki","uid":"loki"},
       "options": {
         "showTime": true,
         "showLabels": false,
