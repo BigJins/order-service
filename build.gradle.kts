@@ -43,12 +43,9 @@ dependencies {
     runtimeOnly("com.mysql:mysql-connector-j")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
-    // Tempo — 분산 추적 (Micrometer → OpenTelemetry → OTLP)
-    // Spring Boot 4.0: OTLP 트레이싱 AutoConfiguration이 별도 모듈로 분리됨
-    implementation("org.springframework.boot:spring-boot-opentelemetry")
-    implementation("org.springframework.boot:spring-boot-micrometer-tracing")
-    implementation("io.micrometer:micrometer-tracing-bridge-otel")
-    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+    // Tempo — 분산 추적 (OpenTelemetry → OTLP)
+    // spring-boot-starter-opentelemetry: OtlpTracingAutoConfiguration 포함 (SB4.0)
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 
     // Loki — 로그 수집 (Logback appender)
     implementation("com.github.loki4j:loki-logback-appender:1.5.2")
