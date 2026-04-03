@@ -1,6 +1,8 @@
 package allmart.orderservice.adapter.kafka;
 
+import allmart.orderservice.adapter.kafka.dto.OrderCreatedPayload;
 import allmart.orderservice.adapter.kafka.dto.OrderPaidPayload;
+import allmart.orderservice.adapter.kafka.dto.OrderStatusChangedPayload;
 import allmart.orderservice.application.required.OutboxEventPublisher;
 import allmart.orderservice.application.required.OutboxRepository;
 import allmart.orderservice.domain.event.OutboxEvent;
@@ -22,18 +24,31 @@ public class OutboxEventPublisherAdapter implements OutboxEventPublisher {
     private final ObjectMapper objectMapper;
 
     @Override
+    public void publishOrderCreated(Order order) {
+        save("order.created.v1", order.getId(), OrderCreatedPayload.from(order));
+    }
+
+    @Override
     public void publishOrderPaid(Order order) {
+        save("order.paid.v1", order.getId(), OrderPaidPayload.from(order));
+    }
+
+    @Override
+    public void publishOrderFailed(Order order) {
+        save("order.failed.v1", order.getId(), OrderStatusChangedPayload.from(order));
+    }
+
+    @Override
+    public void publishOrderConfirmed(Order order) {
+        save("order.confirmed.v1", order.getId(), OrderStatusChangedPayload.from(order));
+    }
+
+    private void save(String topic, Long orderId, Object payload) {
         try {
-            String json = objectMapper.writeValueAsString(OrderPaidPayload.from(order));
-            outboxRepository.save(OutboxEvent.create(
-                    "order.paid.v1",
-                    "order",
-                    String.valueOf(order.getId()),
-                    json
-            ));
+            String json = objectMapper.writeValueAsString(payload);
+            outboxRepository.save(OutboxEvent.create(topic, "order", String.valueOf(orderId), json));
         } catch (Exception e) {
-            throw new IllegalStateException(
-                    "order.paid.v1 이벤트 직렬화 실패: orderId=" + order.getId(), e);
+            throw new IllegalStateException(topic + " 이벤트 직렬화 실패: orderId=" + orderId, e);
         }
     }
 }

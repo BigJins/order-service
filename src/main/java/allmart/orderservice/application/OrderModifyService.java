@@ -51,6 +51,9 @@ public class OrderModifyService implements OrderCreator {
                 saved.getId(), saved.getTossOrderId(), saved.getBuyerId(),
                 saved.getPayMethod(), saved.getTotalAmount().amount(), saved.getStatus());
 
+        // order.created.v1 — order-query-service가 이 이벤트로 MongoDB 도큐먼트를 초기 생성
+        outboxEventPublisher.publishOrderCreated(saved);
+
         // 후불 현금은 pay-service를 거치지 않으므로 주문 생성 시점에 즉시 배송 트리거
         if (saved.getPayMethod() == OrderPayMethod.CASH_ON_DELIVERY) {
             outboxEventPublisher.publishOrderPaid(saved);
@@ -84,6 +87,7 @@ public class OrderModifyService implements OrderCreator {
         }
 
         order.markPaymentFailed();
+        outboxEventPublisher.publishOrderFailed(order);
         releaseInventory(tossOrderId);
         log.warn("결제 실패: tossOrderId={}, orderId={}, buyerId={}", tossOrderId, order.getId(), order.getBuyerId());
     }
@@ -96,6 +100,7 @@ public class OrderModifyService implements OrderCreator {
             return;
         }
         order.markAsCompleted();
+        outboxEventPublisher.publishOrderConfirmed(order);
         log.info("배달 완료 → 주문 CONFIRMED: orderId={}, buyerId={}", orderId, order.getBuyerId());
     }
 

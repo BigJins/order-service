@@ -1,9 +1,7 @@
 package allmart.orderservice.adapter.webapi;
 
 import allmart.orderservice.adapter.webapi.dto.OrderCreatorResponse;
-import allmart.orderservice.adapter.webapi.dto.OrderResponse;
 import allmart.orderservice.application.provided.OrderCreator;
-import allmart.orderservice.application.provided.OrderFinder;
 import allmart.orderservice.domain.order.Order;
 import allmart.orderservice.domain.order.OrderCreateRequest;
 import jakarta.validation.Valid;
@@ -11,14 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequiredArgsConstructor
 public class OrderApi {
 
     private final OrderCreator orderCreator;
-    private final OrderFinder orderFinder;
 
     /**
      * 주문 생성
@@ -39,16 +34,6 @@ public class OrderApi {
 
         Order order = orderCreator.create(effectiveRequest);
         return OrderCreatorResponse.of(order);
-    }
-
-    @GetMapping("/api/orders")
-    public List<OrderResponse> findAll() {
-        return orderFinder.findAll().stream().map(OrderResponse::of).toList();
-    }
-
-    @GetMapping("/api/orders/{orderId}")
-    public OrderResponse find(@PathVariable Long orderId) {
-        return OrderResponse.of(orderFinder.findDetailById(orderId));
     }
 
     /** 현금 선불 — 판매자가 현금 수령 확인 (MEMBER 전용) */
