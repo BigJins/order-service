@@ -2,25 +2,22 @@
   "title": "allmart order-service 부하 테스트",
   "uid": "allmart-order-loadtest",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "time": { "from": "now-30m", "to": "now" },
   "panels": [
 
-    { "type": "row", "title": "📊 k6 부하 테스트 결과", "gridPos": {"h":1,"w":24,"x":0,"y":0}, "id": 100, "collapsed": false },
+    { "type": "row", "title": "📊 k6 부하 테스트", "gridPos": {"h":1,"w":24,"x":0,"y":0}, "id": 100, "collapsed": false },
 
     {
-      "id": 1, "title": "RPS (초당 요청 수)", "type": "timeseries",
+      "id": 1, "title": "RPS (엔드포인트별)", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":0,"y":1},
       "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
-      "fieldConfig": {
-        "defaults": {"unit":"reqps","color":{"mode":"palette-classic"}},
-        "overrides": []
-      },
+      "fieldConfig": {"defaults": {"unit":"reqps","color":{"mode":"palette-classic"}},"overrides":[]},
       "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"order-service\"}[30s])) by (uri, method)",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"order-service\",uri=~\"/api/orders.*\"}[30s])) by (method, uri)",
           "legendFormat": "{{method}} {{uri}}",
           "refId": "A"
         }
@@ -28,47 +25,55 @@
     },
 
     {
-      "id": 2, "title": "응답시간 P95 (ms)", "type": "timeseries",
+      "id": 2, "title": "응답시간 최대값 (ms) — histogram 활성화 후 P95로 교체됨", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":12,"y":1},
       "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {"unit":"ms","color":{"mode":"palette-classic"},"thresholds":{"steps":[{"color":"green","value":null},{"color":"yellow","value":300},{"color":"red","value":500}]}},
-        "overrides": []
+        "defaults": {"unit":"ms","color":{"mode":"palette-classic"},
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":300},{"color":"red","value":1000}]}},
+        "overrides":[]
       },
       "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"order-service\",uri=~\"/api/orders.*\"}[30s])) by (le, uri, method)) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"order-service\",uri=~\"/api/orders.*\"}[30s])) by (le, method, uri)) * 1000",
           "legendFormat": "P95 {{method}} {{uri}}",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=\"order-service\",uri=~\"/api/orders.*\"}[30s])) by (le, uri, method)) * 1000",
-          "legendFormat": "P50 {{method}} {{uri}}",
+          "expr": "http_server_requests_seconds_max{application=\"order-service\",uri=~\"/api/orders.*\"} * 1000",
+          "legendFormat": "MAX {{method}} {{uri}}",
           "refId": "B"
         }
       ]
     },
 
     {
-      "id": 3, "title": "에러율 (%)", "type": "timeseries",
+      "id": 3, "title": "HTTP 상태코드별 요청 수", "type": "timeseries",
       "gridPos": {"h":8,"w":12,"x":0,"y":9},
       "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {"unit":"percent","min":0,"max":100,"color":{"mode":"fixed","fixedColor":"red"}},
-        "overrides": []
+        "defaults": {"unit":"reqps","color":{"mode":"palette-classic"}},
+        "overrides": [
+          {"matcher":{"id":"byFrameRefID","options":"C"},"properties":[{"id":"color","value":{"fixedColor":"red","mode":"fixed"}}]}
+        ]
       },
-      "options": {"tooltip":{"mode":"multi"}},
+      "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"order-service\",status=~\"5..\"}[30s])) / sum(rate(http_server_requests_seconds_count{application=\"order-service\"}[30s])) * 100",
-          "legendFormat": "5xx 에러율",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"order-service\",status=~\"2..\"}[30s]))",
+          "legendFormat": "2xx 성공",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"order-service\",status=~\"4..\"}[30s])) / sum(rate(http_server_requests_seconds_count{application=\"order-service\"}[30s])) * 100",
-          "legendFormat": "4xx 에러율",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"order-service\",status=~\"4..\"}[30s]))",
+          "legendFormat": "4xx 클라이언트 에러",
           "refId": "B"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"order-service\",status=~\"5..\"}[30s]))",
+          "legendFormat": "5xx 서버 에러",
+          "refId": "C"
         }
       ]
     },
@@ -80,10 +85,11 @@
       "fieldConfig": {
         "defaults": {"color":{"mode":"palette-classic"}},
         "overrides": [
-          {"matcher":{"id":"byName","options":"VU 수"},"properties":[{"id":"custom.axisPlacement","value":"right"}]}
+          {"matcher":{"id":"byName","options":"VU 수"},"properties":[{"id":"custom.axisPlacement","value":"right"},{"id":"unit","value":"short"}]},
+          {"matcher":{"id":"byName","options":"k6 RPS"},"properties":[{"id":"unit","value":"reqps"}]}
         ]
       },
-      "options": {"tooltip":{"mode":"multi"}},
+      "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
       "targets": [
         {
           "expr": "k6_vus",
@@ -94,116 +100,152 @@
           "expr": "rate(k6_http_reqs_total[30s])",
           "legendFormat": "k6 RPS",
           "refId": "B"
-        }
-      ]
-    },
-
-    { "type": "row", "title": "🗄️ DB / 커넥션 풀", "gridPos": {"h":1,"w":24,"x":0,"y":17}, "id": 101, "collapsed": false },
-
-    {
-      "id": 5, "title": "HikariCP 커넥션 상태", "type": "timeseries",
-      "gridPos": {"h":8,"w":12,"x":0,"y":18},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
-      "fieldConfig": {
-        "defaults": {"color":{"mode":"palette-classic"}},
-        "overrides": []
-      },
-      "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
-      "targets": [
-        {
-          "expr": "hikaricp_connections_active{application=\"order-service\"}",
-          "legendFormat": "활성 (사용 중)",
-          "refId": "A"
         },
         {
-          "expr": "hikaricp_connections_idle{application=\"order-service\"}",
-          "legendFormat": "유휴",
-          "refId": "B"
-        },
-        {
-          "expr": "hikaricp_connections_pending{application=\"order-service\"}",
-          "legendFormat": "대기 중 (병목 신호!)",
+          "expr": "k6_write_error_rate_rate * 100",
+          "legendFormat": "쓰기 에러율 (%)",
           "refId": "C"
         },
         {
-          "expr": "hikaricp_connections_max{application=\"order-service\"}",
-          "legendFormat": "최대 (pool-size=15)",
+          "expr": "k6_read_error_rate_rate * 100",
+          "legendFormat": "읽기 에러율 (%)",
           "refId": "D"
         }
       ]
     },
 
     {
-      "id": 6, "title": "DB 커넥션 획득 시간 P95 (ms)", "type": "timeseries",
-      "gridPos": {"h":8,"w":12,"x":12,"y":18},
+      "id": 14, "title": "k6 응답시간 P99 (ms)", "type": "timeseries",
+      "gridPos": {"h":8,"w":12,"x":0,"y":17},
       "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {"unit":"ms","thresholds":{"steps":[{"color":"green","value":null},{"color":"yellow","value":50},{"color":"red","value":200}]}},
-        "overrides": []
-      },
-      "options": {"tooltip":{"mode":"multi"}},
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_acquire_seconds_bucket{application=\"order-service\"}[30s])) by (le)) * 1000",
-          "legendFormat": "커넥션 획득 P95",
-          "refId": "A"
-        }
-      ]
-    },
-
-    { "type": "row", "title": "🧵 JVM & 스레드", "gridPos": {"h":1,"w":24,"x":0,"y":26}, "id": 102, "collapsed": false },
-
-    {
-      "id": 7, "title": "JVM 스레드 (Virtual Thread 효과)", "type": "timeseries",
-      "gridPos": {"h":8,"w":12,"x":0,"y":27},
-      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
-      "fieldConfig": {
-        "defaults": {"color":{"mode":"palette-classic"}},
-        "overrides": []
+        "defaults": {"unit":"ms","color":{"mode":"palette-classic"},
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":500},{"color":"red","value":1000}]}},
+        "overrides":[]
       },
       "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
       "targets": [
         {
-          "expr": "jvm_threads_live_threads{application=\"order-service\"}",
-          "legendFormat": "전체 스레드",
+          "expr": "k6_write_duration_ms_p99",
+          "legendFormat": "쓰기(POST) P99",
           "refId": "A"
         },
         {
-          "expr": "jvm_threads_peak_threads{application=\"order-service\"}",
-          "legendFormat": "피크 스레드",
+          "expr": "k6_read_duration_ms_p99",
+          "legendFormat": "읽기(GET) P99",
           "refId": "B"
+        },
+        {
+          "expr": "k6_http_req_duration_p99",
+          "legendFormat": "전체 P99",
+          "refId": "C"
         }
       ]
     },
 
     {
-      "id": 8, "title": "JVM 메모리 사용량", "type": "timeseries",
-      "gridPos": {"h":8,"w":12,"x":12,"y":27},
+      "id": 15, "title": "k6 주문 생성 건수", "type": "stat",
+      "gridPos": {"h":8,"w":12,"x":12,"y":17},
       "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {"unit":"bytes","color":{"mode":"palette-classic"}},
-        "overrides": []
+        "defaults": {"unit":"short","color":{"mode":"thresholds"},"thresholds":{"steps":[{"color":"blue","value":null}]}},
+        "overrides":[]
+      },
+      "options": {"reduceOptions":{"calcs":["lastNotNull"]},"graphMode":"area","colorMode":"background"},
+      "targets": [
+        {
+          "expr": "k6_orders_created_total_total",
+          "legendFormat": "총 주문 생성",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(k6_http_reqs_total[1m]) * 60",
+          "legendFormat": "분당 요청",
+          "refId": "B"
+        }
+      ]
+    },
+
+    { "type": "row", "title": "🗄️ DB / HikariCP 커넥션 풀", "gridPos": {"h":1,"w":24,"x":0,"y":25}, "id": 101, "collapsed": false },
+
+    {
+      "id": 5, "title": "HikariCP 커넥션 상태 (pool-size=15)", "type": "timeseries",
+      "gridPos": {"h":8,"w":12,"x":0,"y":26},
+      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {"color":{"mode":"palette-classic"},"min":0},
+        "overrides": [
+          {"matcher":{"id":"byName","options":"대기 중 (병목!)"},"properties":[{"id":"color","value":{"fixedColor":"red","mode":"fixed"}}]},
+          {"matcher":{"id":"byName","options":"최대(15)"},"properties":[{"id":"color","value":{"fixedColor":"gray","mode":"fixed"}},{"id":"custom.lineStyle","value":{"dash":[10,10],"fill":"dash"}}]}
+        ]
+      },
+      "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
+      "targets": [
+        {"expr":"hikaricp_connections_active{application=\"order-service\"}","legendFormat":"활성 (사용 중)","refId":"A"},
+        {"expr":"hikaricp_connections_idle{application=\"order-service\"}","legendFormat":"유휴","refId":"B"},
+        {"expr":"hikaricp_connections_pending{application=\"order-service\"}","legendFormat":"대기 중 (병목!)","refId":"C"},
+        {"expr":"hikaricp_connections_max{application=\"order-service\"}","legendFormat":"최대(15)","refId":"D"}
+      ]
+    },
+
+    {
+      "id": 6, "title": "DB 커넥션 획득 시간 (ms)", "type": "timeseries",
+      "gridPos": {"h":8,"w":12,"x":12,"y":26},
+      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {"unit":"ms","color":{"mode":"palette-classic"},
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":50},{"color":"red","value":200}]}},
+        "overrides":[]
       },
       "options": {"tooltip":{"mode":"multi"}},
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{application=\"order-service\",area=\"heap\"}",
-          "legendFormat": "Heap 사용",
+          "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"order-service\"}[30s]) / rate(hikaricp_connections_acquire_seconds_count{application=\"order-service\"}[30s]) * 1000",
+          "legendFormat": "평균 획득 시간",
           "refId": "A"
         },
         {
-          "expr": "jvm_memory_max_bytes{application=\"order-service\",area=\"heap\"}",
-          "legendFormat": "Heap 최대",
+          "expr": "hikaricp_connections_acquire_seconds_max{application=\"order-service\"} * 1000",
+          "legendFormat": "최대 획득 시간",
           "refId": "B"
         }
       ]
     },
 
-    { "type": "row", "title": "📋 Loki 로그", "gridPos": {"h":1,"w":24,"x":0,"y":35}, "id": 103, "collapsed": false },
+    { "type": "row", "title": "🧵 JVM", "gridPos": {"h":1,"w":24,"x":0,"y":34}, "id": 102, "collapsed": false },
 
     {
-      "id": 9, "title": "order-service 로그 (traceId 클릭 → Tempo 이동)", "type": "logs",
-      "gridPos": {"h":12,"w":24,"x":0,"y":36},
+      "id": 7, "title": "JVM 스레드 (Virtual Thread 효과)", "type": "timeseries",
+      "gridPos": {"h":8,"w":12,"x":0,"y":35},
+      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"}},"overrides":[]},
+      "options": {"tooltip":{"mode":"multi"},"legend":{"displayMode":"list","placement":"bottom"}},
+      "targets": [
+        {"expr":"jvm_threads_live_threads{application=\"order-service\"}","legendFormat":"전체 스레드","refId":"A"},
+        {"expr":"jvm_threads_peak_threads{application=\"order-service\"}","legendFormat":"피크","refId":"B"},
+        {"expr":"jvm_threads_daemon_threads{application=\"order-service\"}","legendFormat":"데몬 스레드","refId":"C"}
+      ]
+    },
+
+    {
+      "id": 8, "title": "JVM Heap 메모리 (bytes)", "type": "timeseries",
+      "gridPos": {"h":8,"w":12,"x":12,"y":35},
+      "datasource": {"type":"prometheus","uid":"PBFA97CFB590B2093"},
+      "fieldConfig": {"defaults": {"unit":"bytes","color":{"mode":"palette-classic"}},"overrides":[]},
+      "options": {"tooltip":{"mode":"multi"}},
+      "targets": [
+        {"expr":"jvm_memory_used_bytes{application=\"order-service\",area=\"heap\"}","legendFormat":"Heap 사용","refId":"A"},
+        {"expr":"jvm_memory_max_bytes{application=\"order-service\",area=\"heap\"}","legendFormat":"Heap 최대","refId":"B"}
+      ]
+    },
+
+    { "type": "row", "title": "📋 Loki 로그", "gridPos": {"h":1,"w":24,"x":0,"y":43}, "id": 103, "collapsed": false },
+
+    {
+      "id": 9,
+      "title": "order-service 로그 (traceId 클릭 → Tempo)",
+      "type": "logs",
+      "gridPos": {"h":12,"w":24,"x":0,"y":44},
       "datasource": {"type":"loki","uid":"P8E80F9AEF21F6940"},
       "options": {
         "showTime": true,
@@ -217,7 +259,7 @@
       },
       "targets": [
         {
-          "expr": "{app=\"order-service\"} | json | line_format \"[{{.level}}] {{.logger}} | {{.message}}\"",
+          "expr": "{app=\"order-service\"} | json | level != \"\"",
           "legendFormat": "",
           "refId": "A"
         }
@@ -225,8 +267,10 @@
     },
 
     {
-      "id": 10, "title": "ERROR 로그만", "type": "logs",
-      "gridPos": {"h":8,"w":24,"x":0,"y":48},
+      "id": 10,
+      "title": "ERROR 로그만",
+      "type": "logs",
+      "gridPos": {"h":8,"w":24,"x":0,"y":56},
       "datasource": {"type":"loki","uid":"P8E80F9AEF21F6940"},
       "options": {
         "showTime": true,
@@ -238,21 +282,34 @@
       },
       "targets": [
         {
-          "expr": "{app=\"order-service\",level=\"ERROR\"} | json",
+          "expr": "{app=\"order-service\"} | json | level=\"ERROR\"",
           "legendFormat": "",
           "refId": "A"
         }
       ]
     },
 
-    { "type": "row", "title": "🔍 Tempo 사용 방법", "gridPos": {"h":1,"w":24,"x":0,"y":56}, "id": 104, "collapsed": false },
+    { "type": "row", "title": "🔍 Tempo 트레이싱", "gridPos": {"h":1,"w":24,"x":0,"y":64}, "id": 104, "collapsed": false },
 
     {
-      "id": 11, "title": "Tempo 드릴다운 가이드", "type": "text",
-      "gridPos": {"h":10,"w":24,"x":0,"y":57},
+      "id": 11,
+      "title": "Tempo 사용법",
+      "type": "text",
+      "gridPos": {"h":12,"w":12,"x":0,"y":65},
       "options": {
         "mode": "markdown",
-        "content": "## Tempo에서 Trace 보는 법\n\n### 방법 1 — Loki 로그에서 바로 이동 (추천)\n1. 위 **Loki 로그 패널**에서 로그 클릭 → **상세 보기** 열기\n2. `traceId` 필드 옆 **Tempo 링크** 클릭 → 해당 요청의 trace 자동 이동\n\n### 방법 2 — Explore → Tempo에서 직접 검색\n1. 왼쪽 메뉴 **Explore (나침반 아이콘)**\n2. 데이터소스 **Tempo** 선택\n3. **Search** 탭에서:\n   - Service Name: `order-service`\n   - Span Name: `POST /api/orders` 또는 `GET /api/orders/{orderId}`\n   - Min Duration: `200ms` (느린 요청만)\n4. **Run query** → trace 목록에서 클릭\n\n### Trace에서 확인할 것\n```\nPOST /api/orders              ← 전체 응답시간\n  └─ StubProductServiceClient.getPrice    ← stub 호출 (빠름)\n  └─ StubInventoryServiceClient.reserve   ← stub 호출 (빠름)\n  └─ OrderRepository.save                 ← DB INSERT (여기가 느리면 RDS 병목)\n  └─ OutboxRepository.save                ← Outbox INSERT\n```\n\n### Span이 많으면 N+1 의심\n`GET /api/orders/{orderId}` trace에서 `SELECT` span이 3개 이상이면 fetch join 누락"
+        "content": "## Loki → Tempo 연동 (추천)\n\n1. 위 **Loki 로그 패널**에서 로그 한 줄 클릭\n2. 오른쪽에 상세 보기 열림\n3. `traceId` 필드 옆 **Tempo 링크** 클릭\n4. 해당 요청의 전체 trace 자동 이동\n\n---\n\n## Explore → Tempo 직접 검색\n\n1. 왼쪽 **나침반(Explore)** 클릭\n2. 상단에서 **Tempo** 선택\n3. **Search** 탭:\n   - Service Name: `order-service`\n   - Span Name: `POST /api/orders`\n   - Min Duration: `200ms`\n4. **Run query** 클릭"
+      }
+    },
+
+    {
+      "id": 12,
+      "title": "Trace에서 보는 것",
+      "type": "text",
+      "gridPos": {"h":12,"w":12,"x":12,"y":65},
+      "options": {
+        "mode": "markdown",
+        "content": "## Trace 구조 읽는 법\n\n```\nPOST /api/orders  (전체 응답시간)\n  ├─ StubProductServiceClient    빠름 (stub)\n  ├─ StubInventoryServiceClient  빠름 (stub)\n  ├─ OrderRepository.save        ← DB INSERT\n  └─ OutboxRepository.save       ← Outbox INSERT\n\nGET /api/orders/{orderId}  \n  └─ SELECT (fetch join)         ← span 1개면 정상\n                                   span 3개 이상이면 N+1!\n```\n\n## 느린 span 찾기\n- DB span 시간이 길면 → RDS 병목\n- HikariCP 대기시간 길면 → pool-size 늘리기\n- `hikaricp_connections_pending > 0` 이면 pool 고갈"
       }
     }
   ]
