@@ -8,6 +8,7 @@ import allmart.orderservice.domain.order.Order;
 import allmart.orderservice.domain.order.OrderCreateRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,7 +33,8 @@ public class OrderApi {
             @RequestHeader(value = "X-User-Id", required = false) Long buyerIdFromGateway) {
 
         OrderCreateRequest effectiveRequest = buyerIdFromGateway != null
-                ? new OrderCreateRequest(buyerIdFromGateway, request.orderLines(), request.shippingInfo())
+                ? new OrderCreateRequest(buyerIdFromGateway, request.payMethod(), request.orderLines(),
+                        request.deliverySnapshot(), request.martSnapshot(), request.orderMemo())
                 : request;
 
         Order order = orderCreator.create(effectiveRequest);
@@ -47,6 +49,25 @@ public class OrderApi {
     @GetMapping("/api/orders/{orderId}")
     public OrderResponse find(@PathVariable Long orderId) {
         return OrderResponse.of(orderFinder.findDetailById(orderId));
+    }
+
+    /** 현금 선불 — 판매자가 현금 수령 확인 (MEMBER 전용) */
+    @PatchMapping("/api/orders/{orderId}/confirm-cash")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmCash(
+            @PathVariable Long orderId,
+            @RequestHeader(value = "X-User-Type", required = false) String userType) {
+        if (!"MEMBER".equals(userType)) throw new IllegalStateException("판매자 권한이 필요합니다.");
+        orderCreator.confirmCashPayment(orderId);
+    }
+
+    /** 결제 실패 후 재결제 요청 (CUSTOMER 전용) */
+    @PatchMapping("/api/orders/{orderId}/retry-payment")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void retryPayment(
+            @PathVariable Long orderId,
+            @RequestHeader(value = "X-User-Id", required = false) Long buyerIdFromGateway) {
+        orderCreator.retryPayment(orderId);
     }
 
 }

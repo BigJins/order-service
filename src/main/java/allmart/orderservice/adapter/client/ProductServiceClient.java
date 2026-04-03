@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClient;
  */
 @Component
 @RequiredArgsConstructor
+@org.springframework.context.annotation.Profile("!stub")
 public class ProductServiceClient {
 
     private final RestClient productServiceRestClient;

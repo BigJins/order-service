@@ -72,11 +72,9 @@ export const options = {
 
 // ── 상품 풀 (재고 서비스가 있는 경우 실제 productId 사용) ──
 const PRODUCTS = [
-  { id: 1001, name: '제주 감귤 3kg',    price: 15000 },
-  { id: 1002, name: '제주 한라봉 5kg',  price: 25000 },
-  { id: 1003, name: '청귤 2kg',         price: 12000 },
-  { id: 1004, name: '천혜향 2kg',       price: 18000 },
-  { id: 1005, name: '레드향 2kg',       price: 22000 },
+  { id: 1, name: '감귤',        price: 6000  },
+  { id: 2, name: '딸기',        price: 7300  },
+  { id: 3, name: '힘내세요!!!', price: 100000 },
 ];
 
 const NAMES    = ['홍길동', '김철수', '이영희', '박민준', '최수진', '정예원', '강동현'];
@@ -101,7 +99,7 @@ function buildPayload() {
   const lines = shuffled.slice(0, lineCount).map(p => ({
     productId:           p.id,
     productNameSnapshot: p.name,
-    unitPrice:           { amount: p.price },
+    unitPrice:           p.price,
     quantity:            Math.floor(Math.random() * 3) + 1,
   }));
 
@@ -109,7 +107,7 @@ function buildPayload() {
   const memo   = pick(MEMOS);
 
   const body = {
-    buyerId: Math.floor(Math.random() * 500) + 1,
+    buyerId: 1,  // 실제 customer_id (tbl_customer)
     orderLines: lines,
     shippingInfo: {
       receiverName:  pick(NAMES),

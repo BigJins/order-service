@@ -22,9 +22,9 @@ public class DeliveryCompletedConsumer {
 
     @KafkaListener(topics = "${kafka.topics.delivery-completed}", groupId = "order-service")
     public void onMessage(String value) {
-        log.info("delivery.completed.v1 수신: {}", value);
         try {
             DeliveryCompletedMessage msg = objectMapper.readValue(value, DeliveryCompletedMessage.class);
+            log.info("delivery.completed.v1 수신: orderId={}", msg.orderId());
             orderCreator.applyDeliveryCompleted(msg.orderId());
         } catch (Exception e) {
             log.warn("delivery.completed.v1 처리 실패, skip: {}", value, e);

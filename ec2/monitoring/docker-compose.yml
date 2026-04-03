@@ -1,0 +1,71 @@
+##############################################################
+# 모니터링 EC2 — Grafana + Prometheus + Loki + Tempo
+#
+# 시작:
+#   ORDER_SERVICE_IP=<주문서비스EC2-IP> docker compose up -d
+#
+# k6 실행:
+#   k6 run --out experimental-prometheus-rw=http://localhost:9090/api/v1/write \
+#     order-write-read-test.js
+#
+# 포트:
+#   Grafana:    3000  (admin/admin)
+#   Prometheus: 9090
+#   Loki:       3100
+#   Tempo:      3200 (HTTP API), 4317 (OTLP gRPC), 4318 (OTLP HTTP)
+##############################################################
+
+services:
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-remote-write-receiver"   # k6 → Prometheus 직접 push 허용
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.4.2
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki.yaml:/etc/loki/local-config.yaml
+      - loki-data:/tmp/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    ports:
+      - "3200:3200"   # Tempo HTTP API
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+    command: -config.file=/etc/tempo.yaml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    restart: unless-stopped
+
+volumes:
+  loki-data:
+  tempo-data:
+  grafana-data:

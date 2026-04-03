@@ -10,6 +10,7 @@ import allmart.orderservice.application.required.OutboxEventPublisher;
 import allmart.orderservice.domain.order.Order;
 import allmart.orderservice.domain.order.OrderCreateRequest;
 import allmart.orderservice.domain.order.OrderLine;
+import allmart.orderservice.domain.order.OrderPayMethod;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
@@ -44,7 +45,17 @@ public class OrderModifyService implements OrderCreator {
         validatePrices(order);
         reserveInventory(order);
 
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        log.info("주문 생성: orderId={}, tossOrderId={}, buyerId={}, payMethod={}", saved.getId(), saved.getTossOrderId(), saved.getBuyerId(), saved.getPayMethod());
+
+        // 후불 현금은 pay-service를 거치지 않으므로 주문 생성 시점에 즉시 배송 트리거
+        if (saved.getPayMethod() == OrderPayMethod.CASH_ON_DELIVERY) {
+            outboxEventPublisher.publishOrderPaid(saved);
+            confirmInventory(saved.getTossOrderId());
+            log.info("후불 현금 — 배송 즉시 트리거: orderId={}", saved.getId());
+        }
+
+        return saved;
     }
 
     @Override
@@ -58,6 +69,7 @@ public class OrderModifyService implements OrderCreator {
         order.markAsPaid(amount);
         outboxEventPublisher.publishOrderPaid(order);  // Outbox: order.paid.v1 저장 (같은 트랜잭션)
         confirmInventory(tossOrderId);
+        log.info("결제 완료 처리: tossOrderId={}, orderId={}", tossOrderId, order.getId());
     }
 
     @Override
@@ -70,6 +82,7 @@ public class OrderModifyService implements OrderCreator {
 
         order.markPaymentFailed();
         releaseInventory(tossOrderId);
+        log.info("결제 실패 처리: tossOrderId={}, orderId={}", tossOrderId, order.getId());
     }
 
     @Override
@@ -80,6 +93,25 @@ public class OrderModifyService implements OrderCreator {
             return;
         }
         order.markAsCompleted();
+        log.info("배달 완료 처리: orderId={}", orderId);
+    }
+
+    @Override
+    public void confirmCashPayment(Long orderId) {
+        Order order = orderRepository.findDetailById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다: " + orderId));
+        order.confirmCashPayment();
+        outboxEventPublisher.publishOrderPaid(order); // 배송 생성 트리거
+        confirmInventory(order.getTossOrderId());     // 재고 확정 (RESERVED → DEDUCTED)
+        log.info("현금 선불 확인: orderId={}", orderId);
+    }
+
+    @Override
+    public void retryPayment(Long orderId) {
+        Order order = orderRepository.findDetailById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다: " + orderId));
+        order.retryPayment();
+        log.info("재결제 요청: orderId={}, 신규 tossOrderId={}", orderId, order.getTossOrderId());
     }
 
     private void validatePrices(Order order) {

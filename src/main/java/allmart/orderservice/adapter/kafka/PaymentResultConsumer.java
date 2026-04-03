@@ -20,9 +20,9 @@ public class PaymentResultConsumer {
     @KafkaListener(topics = "${kafka.topics.payment-result}", groupId = "order-service")
     public void onMessage(String value) {
 
-        log.info("payment.result raw value {}", value);
-
         PaymentResultMessage msg = parseMessage(value);
+        // paymentKey는 민감정보 — 로그에 포함하지 않음
+        log.info("payment.result 수신: tossOrderId={}, status={}", msg.tossOrderId(), msg.isFailed() ? "FAILED" : "DONE");
 
         if (msg.isFailed()) {
             orderCreator.applyPaymentFailed(msg.tossOrderId(), msg.paymentKey(), msg.amount());

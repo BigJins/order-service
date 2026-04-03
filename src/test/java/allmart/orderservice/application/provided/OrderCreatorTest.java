@@ -19,13 +19,19 @@ record OrderCreatorTest(OrderCreator orderCreator, EntityManager entityManager) 
 
     @Test
     void createOrder() {
-        OrderCreateRequest req = new OrderCreateRequest(23L,
+        OrderCreateRequest req = new OrderCreateRequest(
+                23L,
+                OrderPayMethod.CARD,
                 List.of(new OrderLine(1L, "사과", new Money(1000), 2)),
-                new ShippingInfo("김아무개", "01012345678", new Address("47352", "부산광역시", "범내골역4번출구"), "잘 부탁드려요"));
+                new DeliverySnapshot("47352", "부산광역시 부산진구", "범내골역 4번 출구"),
+                new MartSnapshot(1L, "부산 범내골 마트", null),
+                null
+        );
 
         Order order = orderCreator.create(req);
         assertThat(order.getId()).isNotNull();
-        assertThat(order.getStatus() == PENDING_PAYMENT);
+        assertThat(order.getStatus()).isEqualTo(PENDING_PAYMENT);
+        assertThat(order.getPayMethod()).isEqualTo(OrderPayMethod.CARD);
+        assertThat(order.getMartSnapshot().martName()).isEqualTo("부산 범내골 마트");
     }
-
 }

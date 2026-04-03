@@ -7,14 +7,15 @@ import java.util.List;
 
 /**
  * order.paid.v1 Kafka 이벤트 페이로드
- * receiverPhone은 마스킹된 값으로 포함
+ * 수령인명/전화번호 미포함 — DB에서 직접 확인. 로그/이벤트 개인정보 노출 방지.
  */
 public record OrderPaidPayload(
         Long orderId,
         String tossOrderId,
         Long buyerId,
         long totalAmount,
-        ShippingAddressDto shippingAddress,
+        DeliveryAddressDto deliveryAddress,
+        MartDto mart,
         List<OrderLineDto> orderLines,
         LocalDateTime paidAt
 ) {
@@ -22,12 +23,15 @@ public record OrderPaidPayload(
         orderLines = List.copyOf(orderLines); // 불변 복사 — SpotBugs EI_EXPOSE_REP 방지
     }
 
-    public record ShippingAddressDto(
+    public record DeliveryAddressDto(
             String zipCode,
-            String address,
-            String detailAddress,
-            String receiverName,
-            String receiverPhone
+            String roadAddress,
+            String detailAddress
+    ) {}
+
+    public record MartDto(
+            Long martId,
+            String martName
     ) {}
 
     public record OrderLineDto(
@@ -38,14 +42,15 @@ public record OrderPaidPayload(
     ) {}
 
     public static OrderPaidPayload from(Order order) {
-        var si = order.getShippingInfo();
-        var shippingAddress = new ShippingAddressDto(
-                si.address().zipCode(),
-                si.address().roadAddress(),
-                si.address().detailAddress(),
-                si.receiverName(),
-                si.maskedReceiverPhone()  // 보안 규칙: 전화번호 마스킹
+        var ds = order.getDeliverySnapshot();
+        var deliveryAddress = new DeliveryAddressDto(
+                ds.zipCode(),
+                ds.roadAddress(),
+                ds.detailAddress()
         );
+
+        var ms = order.getMartSnapshot();
+        var mart = new MartDto(ms.martId(), ms.martName());
 
         var orderLines = order.getOrderLines().stream()
                 .map(line -> new OrderLineDto(
@@ -61,7 +66,8 @@ public record OrderPaidPayload(
                 order.getTossOrderId(),
                 order.getBuyerId(),
                 order.getTotalAmount().amount(),
-                shippingAddress,
+                deliveryAddress,
+                mart,
                 orderLines,
                 order.getPaidAt()
         );
