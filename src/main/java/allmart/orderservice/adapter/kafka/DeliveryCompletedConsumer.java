@@ -23,7 +23,11 @@ public class DeliveryCompletedConsumer {
     @KafkaListener(topics = "${kafka.topics.delivery-completed}", groupId = "order-service")
     public void onMessage(String value) {
         try {
-            DeliveryCompletedMessage msg = objectMapper.readValue(value, DeliveryCompletedMessage.class);
+            // Debezium schema envelope 처리: {"schema":...,"payload":"<json>"} 형식 대응
+            var root = objectMapper.readTree(value);
+            String payload = root.has("payload") ? root.get("payload").asText() : value;
+
+            DeliveryCompletedMessage msg = objectMapper.readValue(payload, DeliveryCompletedMessage.class);
             log.info("delivery.completed.v1 수신: orderId={}", msg.orderId());
             orderCreator.applyDeliveryCompleted(msg.orderId());
         } catch (Exception e) {
