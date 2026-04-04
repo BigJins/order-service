@@ -12,7 +12,7 @@ import java.util.List;
  */
 public record OrderCreatedPayload(
         String orderId,
-        String buyerId,
+        long buyerId,
         String tossOrderId,
         String status,
         String payMethod,
@@ -73,7 +73,7 @@ public record OrderCreatedPayload(
 
         return new OrderCreatedPayload(
                 String.valueOf(order.getId()),
-                String.valueOf(order.getBuyerId()),
+                order.getBuyerId(),
                 order.getTossOrderId(),
                 order.getStatus().name(),
                 order.getPayMethod().name(),

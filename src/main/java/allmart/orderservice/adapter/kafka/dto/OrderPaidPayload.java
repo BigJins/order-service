@@ -45,7 +45,7 @@ public record OrderPaidPayload(
 
     public record DeliveryAddressDto(String zipCode, String roadAddress, String detailAddress) {}
     public record MartDto(Long martId, String martName) {}
-    public record OrderLineDto(Long productId, String productName, int quantity, long unitPrice) {}
+    public record OrderLineDto(String productId, String productNameSnapshot, int quantity, long unitPrice) {}
 
     public record DeliverySnapshotDto(String zipCode, String roadAddress, String detailAddress) {}
     public record MartSnapshotDto(String martId, String martName, String martPhone) {}
@@ -59,7 +59,7 @@ public record OrderPaidPayload(
         var memo = order.getOrderMemo();
 
         var orderLines = order.getOrderLines().stream()
-                .map(l -> new OrderLineDto(l.productId(), l.productNameSnapshot(), l.quantity(), l.unitPrice().amount()))
+                .map(l -> new OrderLineDto(String.valueOf(l.productId()), l.productNameSnapshot(), l.quantity(), l.unitPrice().amount()))
                 .toList();
 
         var chargeLines = order.getChargeLines().stream()
