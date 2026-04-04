@@ -1,15 +1,23 @@
 package allmart.orderservice.adapter.kafka.dto;
 
 import allmart.orderservice.domain.order.Order;
+import allmart.orderservice.domain.order.OrderPayMethod;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * order.paid.v1 Kafka 이벤트 페이로드
- * 수령인명/전화번호 미포함 — DB에서 직접 확인. 로그/이벤트 개인정보 노출 방지.
+ *
+ * [delivery-service 호환] deliveryAddress, mart, orderLines.productName, paidAt
+ * [MongoDB Sink 전체 상태] status, payMethod, chargeLines, deliverySnapshot,
+ *                          martSnapshot, orderMemo, statusHistory, createdAt
+ *
+ * 수령인명/전화번호 미포함 — PII 보호.
  */
 public record OrderPaidPayload(
+        // ── delivery-service 호환 필드 ──────────────────────────────
         Long orderId,
         String tossOrderId,
         Long buyerId,
@@ -17,59 +25,71 @@ public record OrderPaidPayload(
         DeliveryAddressDto deliveryAddress,
         MartDto mart,
         List<OrderLineDto> orderLines,
-        LocalDateTime paidAt
+        LocalDateTime paidAt,
+
+        // ── MongoDB OrderDocument 전체 상태 필드 ────────────────────
+        String status,
+        String payMethod,
+        List<ChargeLineDto> chargeLines,
+        DeliverySnapshotDto deliverySnapshot,
+        MartSnapshotDto martSnapshot,
+        OrderMemoDto orderMemo,
+        List<StatusHistoryDto> statusHistory,
+        LocalDateTime createdAt
 ) {
     public OrderPaidPayload {
-        orderLines = List.copyOf(orderLines); // 불변 복사 — SpotBugs EI_EXPOSE_REP 방지
+        orderLines    = List.copyOf(orderLines);
+        chargeLines   = List.copyOf(chargeLines);
+        statusHistory = List.copyOf(statusHistory);
     }
 
-    public record DeliveryAddressDto(
-            String zipCode,
-            String roadAddress,
-            String detailAddress
-    ) {}
+    public record DeliveryAddressDto(String zipCode, String roadAddress, String detailAddress) {}
+    public record MartDto(Long martId, String martName) {}
+    public record OrderLineDto(Long productId, String productName, int quantity, long unitPrice) {}
 
-    public record MartDto(
-            Long martId,
-            String martName
-    ) {}
-
-    public record OrderLineDto(
-            Long productId,
-            String productName,
-            int quantity,
-            long unitPrice
-    ) {}
+    public record DeliverySnapshotDto(String zipCode, String roadAddress, String detailAddress) {}
+    public record MartSnapshotDto(String martId, String martName, String martPhone) {}
+    public record ChargeLineDto(String type, long amount) {}
+    public record OrderMemoDto(String orderRequest, String deliveryRequest) {}
+    public record StatusHistoryDto(String status, LocalDateTime at) {}
 
     public static OrderPaidPayload from(Order order) {
-        var ds = order.getDeliverySnapshot();
-        var deliveryAddress = new DeliveryAddressDto(
-                ds.zipCode(),
-                ds.roadAddress(),
-                ds.detailAddress()
-        );
-
-        var ms = order.getMartSnapshot();
-        var mart = new MartDto(ms.martId(), ms.martName());
+        var ds   = order.getDeliverySnapshot();
+        var ms   = order.getMartSnapshot();
+        var memo = order.getOrderMemo();
 
         var orderLines = order.getOrderLines().stream()
-                .map(line -> new OrderLineDto(
-                        line.productId(),
-                        line.productNameSnapshot(),
-                        line.quantity(),
-                        line.unitPrice().amount()
-                ))
+                .map(l -> new OrderLineDto(l.productId(), l.productNameSnapshot(), l.quantity(), l.unitPrice().amount()))
                 .toList();
+
+        var chargeLines = order.getChargeLines().stream()
+                .map(cl -> new ChargeLineDto(cl.type().name(), cl.amount().amount()))
+                .toList();
+
+        var initialStatus = order.getPayMethod() == OrderPayMethod.CASH_ON_DELIVERY ? "PAID" : "PENDING_PAYMENT";
+        var history = new ArrayList<StatusHistoryDto>();
+        history.add(new StatusHistoryDto(initialStatus, order.getCreatedAt()));
+        if (order.getPaidAt() != null && !"PAID".equals(initialStatus)) {
+            history.add(new StatusHistoryDto("PAID", order.getPaidAt()));
+        }
 
         return new OrderPaidPayload(
                 order.getId(),
                 order.getTossOrderId(),
                 order.getBuyerId(),
                 order.getTotalAmount().amount(),
-                deliveryAddress,
-                mart,
+                new DeliveryAddressDto(ds.zipCode(), ds.roadAddress(), ds.detailAddress()),
+                new MartDto(ms.martId(), ms.martName()),
                 orderLines,
-                order.getPaidAt()
+                order.getPaidAt(),
+                order.getStatus().name(),
+                order.getPayMethod().name(),
+                chargeLines,
+                new DeliverySnapshotDto(ds.zipCode(), ds.roadAddress(), ds.detailAddress()),
+                new MartSnapshotDto(String.valueOf(ms.martId()), ms.martName(), ms.martPhone()),
+                memo != null ? new OrderMemoDto(memo.orderRequest(), memo.deliveryRequest()) : null,
+                history,
+                order.getCreatedAt()
         );
     }
 }

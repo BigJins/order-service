@@ -56,7 +56,20 @@ public record OrderCreatedPayload(
                 .map(cl -> new ChargeLineDto(cl.type().name(), cl.amount().amount()))
                 .toList();
 
-        var initialHistory = List.of(new StatusHistoryDto(order.getStatus().name(), order.getCreatedAt()));
+        // 현재 상태 기준으로 statusHistory 재구성 (Order 엔티티에 이력 컬럼이 없으므로 타임스탬프로 추론)
+        var initialStatus = order.getPayMethod() == allmart.orderservice.domain.order.OrderPayMethod.CASH_ON_DELIVERY
+                ? "PAID" : "PENDING_PAYMENT";
+        var statusHistory = new java.util.ArrayList<StatusHistoryDto>();
+        statusHistory.add(new StatusHistoryDto(initialStatus, order.getCreatedAt()));
+        if (order.getPaidAt() != null && !"PAID".equals(initialStatus)) {
+            statusHistory.add(new StatusHistoryDto("PAID", order.getPaidAt()));
+        }
+        if (order.getStatus() == allmart.orderservice.domain.order.OrderStatus.PAYMENT_FAILED) {
+            statusHistory.add(new StatusHistoryDto("PAYMENT_FAILED", order.getCreatedAt()));
+        }
+        if (order.getConfirmedAt() != null) {
+            statusHistory.add(new StatusHistoryDto("CONFIRMED", order.getConfirmedAt()));
+        }
 
         return new OrderCreatedPayload(
                 String.valueOf(order.getId()),
@@ -70,7 +83,7 @@ public record OrderCreatedPayload(
                 new DeliverySnapshotDto(ds.zipCode(), ds.roadAddress(), ds.detailAddress()),
                 new MartSnapshotDto(String.valueOf(ms.martId()), ms.martName(), ms.martPhone()),
                 memo != null ? new OrderMemoDto(memo.orderRequest(), memo.deliveryRequest()) : null,
-                initialHistory,
+                statusHistory,
                 order.getCreatedAt()
         );
     }

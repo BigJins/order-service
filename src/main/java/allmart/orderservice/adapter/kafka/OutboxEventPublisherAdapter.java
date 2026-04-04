@@ -35,12 +35,12 @@ public class OutboxEventPublisherAdapter implements OutboxEventPublisher {
 
     @Override
     public void publishOrderFailed(Order order) {
-        save("order.failed.v1", order.getId(), OrderStatusChangedPayload.from(order));
+        save("order.failed.v1", order.getId(), OrderCreatedPayload.from(order));
     }
 
     @Override
     public void publishOrderConfirmed(Order order) {
-        save("order.confirmed.v1", order.getId(), OrderStatusChangedPayload.from(order));
+        save("order.confirmed.v1", order.getId(), OrderCreatedPayload.from(order));
     }
 
     private void save(String topic, Long orderId, Object payload) {
