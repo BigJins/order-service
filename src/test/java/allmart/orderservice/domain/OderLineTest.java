@@ -12,40 +12,26 @@ class OderLineTest {
     @Test
     void blankProductName_throws() {
         assertThatThrownBy(() ->
-                new OrderLine(1L, "   ", new Money(1000), 1)
+                new OrderLine(1L, "   ", new Money(1000), 1, null)
         ).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void nullProductName_throws() {
         assertThatThrownBy(() ->
-                new OrderLine(1L, null, new Money(1000), 1)
+                new OrderLine(1L, null, new Money(1000), 1, null)
         ).isInstanceOf(NullPointerException.class);
-        
     }
 
     @Test
     void trimApplied() {
-        OrderLine line = new OrderLine(
-                1L,
-                "   사과   ",
-                new Money(1000),
-                2
-        );
-
+        OrderLine line = new OrderLine(1L, "   사과   ", new Money(1000), 2, null);
         assertThat(line.productNameSnapshot()).isEqualTo("사과");
     }
 
     @Test
     void lineAmountCalculated() {
-        OrderLine line = new OrderLine(
-                1L,
-                "사과",
-                new Money(1000),
-                3
-        );
-
-        assertThat(line.lineAmount())
-                .isEqualTo(new Money(3000));
+        OrderLine line = new OrderLine(1L, "사과", new Money(1000), 3, null);
+        assertThat(line.lineAmount()).isEqualTo(new Money(3000));
     }
 }

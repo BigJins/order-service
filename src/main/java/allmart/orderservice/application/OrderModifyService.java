@@ -5,8 +5,10 @@ import allmart.orderservice.adapter.client.ProductServiceClient;
 import allmart.orderservice.adapter.client.dto.InventoryReserveRequest;
 import allmart.orderservice.adapter.client.dto.ProductPriceResponse;
 import allmart.orderservice.application.provided.OrderCreator;
+import allmart.orderservice.application.required.MartDeliveryConfigRepository;
 import allmart.orderservice.application.required.OrderRepository;
 import allmart.orderservice.application.required.OutboxEventPublisher;
+import allmart.orderservice.domain.order.MartDeliveryConfig;
 import allmart.orderservice.domain.order.OrderNotFoundException;
 import allmart.orderservice.domain.order.Order;
 import allmart.orderservice.domain.order.OrderCreateRequest;
@@ -28,6 +30,7 @@ import java.util.List;
 public class OrderModifyService implements OrderCreator {
 
     private final OrderRepository orderRepository;
+    private final MartDeliveryConfigRepository martDeliveryConfigRepository;
     private final ProductServiceClient productServiceClient;
     private final InventoryServiceClient inventoryServiceClient;
     private final OutboxEventPublisher outboxEventPublisher;
@@ -41,9 +44,19 @@ public class OrderModifyService implements OrderCreator {
      */
     @Override
     public Order create(OrderCreateRequest orderCreateRequest) {
-        Order order = Order.create(orderCreateRequest);
+        Long martId = orderCreateRequest.martSnapshot().martId();
+        MartDeliveryConfig deliveryConfig = martDeliveryConfigRepository.findByMartId(martId)
+                .orElseThrow(() -> new IllegalArgumentException("마트 배달 설정이 등록되지 않았습니다. martId=" + martId));
 
-        validatePrices(order);
+        // 가격 검증 + taxType 서버 주입 → enriched orderLines로 교체
+        List<OrderLine> enrichedLines = enrichAndValidatePrices(orderCreateRequest.orderLines());
+        OrderCreateRequest enrichedRequest = new OrderCreateRequest(
+                orderCreateRequest.buyerId(), orderCreateRequest.payMethod(), enrichedLines,
+                orderCreateRequest.deliverySnapshot(), orderCreateRequest.martSnapshot(), orderCreateRequest.orderMemo()
+        );
+
+        Order order = Order.create(enrichedRequest, deliveryConfig);
+
         reserveInventory(order);
 
         Order saved = orderRepository.save(order);
@@ -127,17 +140,26 @@ public class OrderModifyService implements OrderCreator {
                 orderId, buyerId, oldTossOrderId, order.getTossOrderId());
     }
 
-    private void validatePrices(Order order) {
-        for (OrderLine line : order.getOrderLines()) {
-            ProductPriceResponse priceResponse = productServiceClient.getPrice(line.productId());
-            if (priceResponse.price() != line.unitPrice().amount()) {
-                throw new IllegalArgumentException(
-                        "가격이 변경된 상품이 있습니다. productId=" + line.productId()
-                        + " (요청=" + line.unitPrice().amount()
-                        + ", 현재=" + priceResponse.price() + ")"
-                );
-            }
-        }
+    /**
+     * 가격 검증 + taxType 서버 주입.
+     * 클라이언트가 보낸 unitPrice를 product-service 현재 가격과 대조 후,
+     * taxType을 서버에서 채워 새 OrderLine 리스트를 반환.
+     */
+    private List<OrderLine> enrichAndValidatePrices(List<OrderLine> orderLines) {
+        return orderLines.stream()
+                .map(line -> {
+                    ProductPriceResponse resp = productServiceClient.getPrice(line.productId());
+                    if (resp.price() != line.unitPrice().amount()) {
+                        throw new IllegalArgumentException(
+                                "가격이 변경된 상품이 있습니다. productId=" + line.productId()
+                                + " (요청=" + line.unitPrice().amount()
+                                + ", 현재=" + resp.price() + ")"
+                        );
+                    }
+                    return new OrderLine(line.productId(), line.productNameSnapshot(),
+                            line.unitPrice(), line.quantity(), resp.taxType());
+                })
+                .toList();
     }
 
     private void reserveInventory(Order order) {

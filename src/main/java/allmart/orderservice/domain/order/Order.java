@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -13,15 +12,8 @@ import java.util.List;
 
 @Entity
 @Getter
-@ToString(callSuper = true)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(
-        name = "orders",
-        indexes = {
-                @Index(name = "idx_orders_buyer_id", columnList = "buyer_id"),
-                @Index(name = "idx_orders_created_at", columnList = "created_at")
-        }
-)
+@Table(name = "orders")
 public class Order extends AbstractEntity {
 
     @Column(name = "toss_order_id", nullable = false, length = 64, unique = true, updatable = false)
@@ -63,6 +55,24 @@ public class Order extends AbstractEntity {
     @Embedded
     private OrderMemo orderMemo;
 
+    // 배달료
+    @Embedded
+    @AttributeOverride(name = "amount", column = @Column(name = "delivery_fee", nullable = false))
+    private Money deliveryFee;
+
+    // 공급가액
+    @Embedded
+    @AttributeOverride(name = "amount", column = @Column(name = "delivery_supply", nullable = false))
+    private Money deliverySupply;
+
+    // 부가세
+    @Embedded
+    @AttributeOverride(name = "amount", column = @Column(name = "delivery_vat", nullable = false))
+    private Money deliveryVat;
+
+    @Column(nullable = false)
+    private Boolean freeDelivery;
+
     @Embedded
     @AttributeOverride(name = "amount", column = @Column(name = "total_amount", nullable = false))
     private Money totalAmount;
@@ -79,7 +89,7 @@ public class Order extends AbstractEntity {
     @Column(name = "canceled_at")
     private LocalDateTime canceledAt;
 
-    public static Order create(OrderCreateRequest req) {
+    public static Order create(OrderCreateRequest req, MartDeliveryConfig deliveryConfig) {
         Order order = new Order();
 
         order.buyerId          = req.buyerId();
@@ -95,7 +105,7 @@ public class Order extends AbstractEntity {
         if (req.payMethod() == OrderPayMethod.CASH_ON_DELIVERY) {
             order.paidAt = LocalDateTime.now(); // 실제 결제는 배달 완료 시지만 배송 트리거용
         }
-        order.tossOrderId      = "ORD_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        order.tossOrderId = generateTossOrderId();
 
         Money productTotal = req.orderLines().stream()
                 .map(OrderLine::lineAmount)
@@ -103,14 +113,17 @@ public class Order extends AbstractEntity {
 
         if (productTotal.amount() == 0) throw new IllegalArgumentException("totalAmount is zero");
 
-        // 배송비: 5만 원 이상 무료, 미만 3,000원 — 백엔드가 금액의 단일 진실 출처
-        Money deliveryFee = productTotal.amount() >= 50_000 ? Money.zero() : Money.of(3_000);
+        // 배송비: 마트 사장님이 지정한 기준으로 계산 — 백엔드가 금액의 단일 진실 출처
+        order.freeDelivery = productTotal.amount() >= deliveryConfig.getFreeDeliveryThreshold();
+        order.applyDeliveryFee(Money.of(deliveryConfig.getDeliveryFeeAmount()));
 
-        order.totalAmount = productTotal.plus(deliveryFee);
+        order.totalAmount = productTotal.plus(order.deliveryFee);
 
         // 요금 명세 저장
-        order.chargeLines.add(new ChargeLine(ChargeType.SUBTOTAL, productTotal));
-        order.chargeLines.add(new ChargeLine(ChargeType.DELIVERY_FEE, deliveryFee));
+        order.chargeLines.add(new ChargeLine(ChargeType.SUBTOTAL,        productTotal));
+        order.chargeLines.add(new ChargeLine(ChargeType.DELIVERY_FEE,    order.deliveryFee));
+        order.chargeLines.add(new ChargeLine(ChargeType.DELIVERY_SUPPLY, order.deliverySupply));
+        order.chargeLines.add(new ChargeLine(ChargeType.DELIVERY_VAT,    order.deliveryVat));
 
         return order;
     }
@@ -162,6 +175,24 @@ public class Order extends AbstractEntity {
         if (this.status != OrderStatus.PAYMENT_FAILED)
             throw new IllegalStateException("결제 실패 상태에서만 재결제가 가능합니다.");
         this.status = OrderStatus.PENDING_PAYMENT;
-        this.tossOrderId = "ORD_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        this.tossOrderId = generateTossOrderId();
+    }
+
+    private static String generateTossOrderId() {
+        return "ORD_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    /** 배달료 세금 자동 계산 **/
+    public void applyDeliveryFee(Money deliveryFee) {
+        if (Boolean.TRUE.equals(this.freeDelivery) || deliveryFee == null) {
+            this.deliveryFee = Money.zero();
+            this.deliverySupply = Money.zero();
+            this.deliveryVat = Money.zero();
+            return;
+        }
+
+        this.deliveryFee = deliveryFee;
+        this.deliverySupply = deliveryFee.divide(1.1);
+        this.deliveryVat = deliveryFee.minus(deliverySupply);
     }
 }

@@ -22,7 +22,7 @@ class ExternalClientTestConfig {
             // 요청한 unitPrice 그대로 반환 — 가격 검증 통과
             @Override
             public ProductPriceResponse getPrice(Long productId) {
-                return new ProductPriceResponse(productId, "테스트상품", 1000L);
+                return new ProductPriceResponse(productId, "테스트상품", 1000L, "TAXABLE", null, null);
             }
         };
     }

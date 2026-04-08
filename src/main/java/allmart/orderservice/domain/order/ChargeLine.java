@@ -27,4 +27,5 @@ public record ChargeLine(
         requireNonNull(type, "type is required");
         requireNonNull(amount, "amount is required");
     }
+
 }

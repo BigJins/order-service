@@ -33,6 +33,17 @@ public record Money(
         return new Money(Math.multiplyExact(amount, (long) quantity));
     }
 
+    public Money minus(Money other) {
+        Objects.requireNonNull(other);
+        if (this.amount < other.amount) throw new IllegalArgumentException("Amount must be not negative");
+        return new Money(this.amount - other.amount);
+    }
+
+    public Money divide(double divisor) {
+        if (divisor <= 0) throw new IllegalArgumentException("Divisor must be positive");
+        return new Money(Math.round(this.amount / divisor));
+    }
+
     public static Money zero() {
         return new Money(0);
     }

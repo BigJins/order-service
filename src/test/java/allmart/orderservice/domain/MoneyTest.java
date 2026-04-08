@@ -11,14 +11,12 @@ class MoneyTest {
     @Test
     void plusMoney() {
         Money money = new Money(10);
-
         assertThat(money.plus(new Money(20))).isEqualTo(new Money(30));
     }
 
     @Test
     void multiplyMoney() {
         Money money = new Money(10);
-
         assertThat(money.multiply(3)).isEqualTo(new Money(30));
     }
 
@@ -31,5 +29,4 @@ class MoneyTest {
     void zeroAmount() {
         assertThat(Money.zero()).isEqualTo(new Money(0));
     }
-
 }

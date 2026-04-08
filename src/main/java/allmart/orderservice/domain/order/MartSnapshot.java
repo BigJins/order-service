@@ -36,4 +36,5 @@ public record MartSnapshot(
             martPhone = martPhone.trim().isEmpty() ? null : martPhone.trim();
         }
     }
+
 }
