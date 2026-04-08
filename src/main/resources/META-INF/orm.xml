@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm"
+<entity-mappings xmlns="http://www.hibernate.org/xsd/orm/mapping"
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                 xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence/orm
-                                     https://jakarta.ee/xml/ns/persistence/orm/orm_3_1.xsd"
-                 version="3.1">
+                 xsi:schemaLocation="http://www.hibernate.org/xsd/orm/mapping
+                                     https://hibernate.org/xsd/orm/mapping/mapping-3.1.0.xsd">
 
     <!--
         JPA 컬럼/테이블/관계 매핑을 XML로 분리 — 도메인 클래스 가독성 향상.
         @Entity, @Id, @SnowflakeGenerated, @MappedSuperclass, Lombok 어노테이션은 Java에 유지.
         @ElementCollection/@Embedded/@AttributeOverride 도 XML로 이동.
-        access="FIELD": @Id가 필드에 있으므로 필드 접근 방식 명시 (orm.xml 기본값 방지).
     -->
 
-    <entity class="allmart.orderservice.domain.order.Order" access="FIELD">
+    <access>FIELD</access>
+
+    <entity class="allmart.orderservice.domain.order.Order">
         <table name="orders"/>
         <attributes>
             <basic name="tossOrderId">
@@ -90,7 +90,7 @@
         </attributes>
     </entity>
 
-    <entity class="allmart.orderservice.domain.order.MartDeliveryConfig" access="FIELD">
+    <entity class="allmart.orderservice.domain.order.MartDeliveryConfig">
         <table name="mart_delivery_config"/>
         <attributes>
             <basic name="martId">
@@ -108,7 +108,7 @@
         </attributes>
     </entity>
 
-    <entity class="allmart.orderservice.domain.event.OutboxEvent" access="FIELD">
+    <entity class="allmart.orderservice.domain.event.OutboxEvent">
         <table name="outbox_event">
             <index name="idx_outbox_created_at" column-list="created_at"/>
         </table>
