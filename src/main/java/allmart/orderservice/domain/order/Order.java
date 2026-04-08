@@ -1,7 +1,7 @@
 package allmart.orderservice.domain.order;
 
 import allmart.orderservice.domain.AbstractEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,80 +13,48 @@ import java.util.List;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "orders")
 public class Order extends AbstractEntity {
 
-    @Column(name = "toss_order_id", nullable = false, length = 64, unique = true, updatable = false)
     private String tossOrderId;
 
-    @Column(name = "buyer_id", nullable = false, updatable = false)
     private Long buyerId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "pay_method", nullable = false, length = 20)
     private OrderPayMethod payMethod;
 
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "order_lines", joinColumns = @JoinColumn(name = "order_id"))
     private List<OrderLine> orderLines;
 
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "charge_lines", joinColumns = @JoinColumn(name = "order_id"))
     private List<ChargeLine> chargeLines = new ArrayList<>();
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private OrderStatus status;
 
     // 주문 당시 배송지 스냅샷 — 수령인/전화번호 제외 (DB에서 직접 확인)
-    @Embedded
-    @AttributeOverrides({
-            @AttributeOverride(name = "zipCode",       column = @Column(name = "zip_code",       nullable = false, length = 10)),
-            @AttributeOverride(name = "roadAddress",   column = @Column(name = "road_address",   nullable = false, length = 200)),
-            @AttributeOverride(name = "detailAddress", column = @Column(name = "detail_address", nullable = false, length = 200))
-    })
     private DeliverySnapshot deliverySnapshot;
 
     // 주문 당시 마트 정보 스냅샷
-    @Embedded
     private MartSnapshot martSnapshot;
 
     // 주문/배달 요청사항 (선택)
-    @Embedded
     private OrderMemo orderMemo;
 
     // 배달료
-    @Embedded
-    @AttributeOverride(name = "amount", column = @Column(name = "delivery_fee", nullable = false))
     private Money deliveryFee;
 
     // 공급가액
-    @Embedded
-    @AttributeOverride(name = "amount", column = @Column(name = "delivery_supply", nullable = false))
     private Money deliverySupply;
 
     // 부가세
-    @Embedded
-    @AttributeOverride(name = "amount", column = @Column(name = "delivery_vat", nullable = false))
     private Money deliveryVat;
 
-    @Column(nullable = false)
     private Boolean freeDelivery;
 
-    @Embedded
-    @AttributeOverride(name = "amount", column = @Column(name = "total_amount", nullable = false))
     private Money totalAmount;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
-    @Column(name = "canceled_at")
     private LocalDateTime canceledAt;
 
     public static Order create(OrderCreateRequest req, MartDeliveryConfig deliveryConfig) {

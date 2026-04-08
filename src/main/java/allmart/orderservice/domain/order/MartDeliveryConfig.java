@@ -1,9 +1,7 @@
 package allmart.orderservice.domain.order;
 
 import allmart.orderservice.domain.AbstractEntity;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,19 +15,14 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "mart_delivery_config")
 public class MartDeliveryConfig extends AbstractEntity {
 
-    @Column(name = "mart_id", nullable = false, unique = true)
     private Long martId;
 
-    @Column(name = "delivery_fee_amount", nullable = false)
     private long deliveryFeeAmount;
 
-    @Column(name = "free_delivery_threshold", nullable = false)
     private long freeDeliveryThreshold;
 
-    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     public static MartDeliveryConfig create(Long martId, long deliveryFeeAmount, long freeDeliveryThreshold) {

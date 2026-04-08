@@ -1,7 +1,8 @@
 package allmart.orderservice.domain.event;
 
 import allmart.orderservice.config.SnowflakeGenerated;
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,10 +10,6 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "outbox_event",
-        indexes = {
-                @Index(name = "idx_outbox_created_at", columnList = "created_at")
-        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OutboxEvent {
@@ -22,23 +19,17 @@ public class OutboxEvent {
     private Long id;
 
     // ORDER_CREATED 같은 타입
-    @Column(name = "event_type", nullable = false, length = 50)
     private String eventType;
 
     // Order Aggregate ID
-    @Column(name = "aggregate_id", nullable = false, length = 100)
     private String aggregateId;
 
     // order, payment 등
-    @Column(name = "aggregate_type", nullable = false, length = 50)
     private String aggregateType;
 
     // 실제 이벤트 데이터(JSON)
-    @Column(name = "payload", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String payload;
 
-
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public static OutboxEvent create(

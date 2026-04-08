@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence/orm
+                                     https://jakarta.ee/xml/ns/persistence/orm/orm_3_1.xsd"
+                 version="3.1">
+
+    <!--
+        JPA 컬럼/테이블/관계 매핑을 XML로 분리 — 도메인 클래스 가독성 향상.
+        @Entity, @Id, @SnowflakeGenerated, @MappedSuperclass, Lombok 어노테이션은 Java에 유지.
+        @ElementCollection/@Embedded/@AttributeOverride 도 XML로 이동.
+        access="FIELD": @Id가 필드에 있으므로 필드 접근 방식 명시 (orm.xml 기본값 방지).
+    -->
+
+    <entity class="allmart.orderservice.domain.order.Order" access="FIELD">
+        <table name="orders"/>
+        <attributes>
+            <basic name="tossOrderId">
+                <column name="toss_order_id" nullable="false" length="64" unique="true" updatable="false"/>
+            </basic>
+            <basic name="buyerId">
+                <column name="buyer_id" nullable="false" updatable="false"/>
+            </basic>
+            <basic name="payMethod">
+                <column name="pay_method" nullable="false" length="20"/>
+                <enumerated>STRING</enumerated>
+            </basic>
+            <basic name="status">
+                <column nullable="false" length="20"/>
+                <enumerated>STRING</enumerated>
+            </basic>
+            <basic name="freeDelivery">
+                <column nullable="false"/>
+            </basic>
+            <basic name="createdAt">
+                <column name="created_at" nullable="false" updatable="false"/>
+            </basic>
+            <basic name="paidAt">
+                <column name="paid_at"/>
+            </basic>
+            <basic name="confirmedAt">
+                <column name="confirmed_at"/>
+            </basic>
+            <basic name="canceledAt">
+                <column name="canceled_at"/>
+            </basic>
+            <element-collection name="orderLines" fetch="LAZY">
+                <collection-table name="order_lines">
+                    <join-column name="order_id"/>
+                </collection-table>
+            </element-collection>
+            <element-collection name="chargeLines" fetch="LAZY">
+                <collection-table name="charge_lines">
+                    <join-column name="order_id"/>
+                </collection-table>
+            </element-collection>
+            <embedded name="deliverySnapshot">
+                <attribute-override name="zipCode">
+                    <column name="zip_code" nullable="false" length="10"/>
+                </attribute-override>
+                <attribute-override name="roadAddress">
+                    <column name="road_address" nullable="false" length="200"/>
+                </attribute-override>
+                <attribute-override name="detailAddress">
+                    <column name="detail_address" nullable="false" length="200"/>
+                </attribute-override>
+            </embedded>
+            <embedded name="martSnapshot"/>
+            <embedded name="orderMemo"/>
+            <embedded name="deliveryFee">
+                <attribute-override name="amount">
+                    <column name="delivery_fee" nullable="false"/>
+                </attribute-override>
+            </embedded>
+            <embedded name="deliverySupply">
+                <attribute-override name="amount">
+                    <column name="delivery_supply" nullable="false"/>
+                </attribute-override>
+            </embedded>
+            <embedded name="deliveryVat">
+                <attribute-override name="amount">
+                    <column name="delivery_vat" nullable="false"/>
+                </attribute-override>
+            </embedded>
+            <embedded name="totalAmount">
+                <attribute-override name="amount">
+                    <column name="total_amount" nullable="false"/>
+                </attribute-override>
+            </embedded>
+        </attributes>
+    </entity>
+
+    <entity class="allmart.orderservice.domain.order.MartDeliveryConfig" access="FIELD">
+        <table name="mart_delivery_config"/>
+        <attributes>
+            <basic name="martId">
+                <column name="mart_id" nullable="false" unique="true"/>
+            </basic>
+            <basic name="deliveryFeeAmount">
+                <column name="delivery_fee_amount" nullable="false"/>
+            </basic>
+            <basic name="freeDeliveryThreshold">
+                <column name="free_delivery_threshold" nullable="false"/>
+            </basic>
+            <basic name="updatedAt">
+                <column name="updated_at" nullable="false"/>
+            </basic>
+        </attributes>
+    </entity>
+
+    <entity class="allmart.orderservice.domain.event.OutboxEvent" access="FIELD">
+        <table name="outbox_event">
+            <index name="idx_outbox_created_at" column-list="created_at"/>
+        </table>
+        <attributes>
+            <basic name="eventType">
+                <column name="event_type" nullable="false" length="50"/>
+            </basic>
+            <basic name="aggregateId">
+                <column name="aggregate_id" nullable="false" length="100"/>
+            </basic>
+            <basic name="aggregateType">
+                <column name="aggregate_type" nullable="false" length="50"/>
+            </basic>
+            <basic name="payload">
+                <column name="payload" nullable="false" column-definition="MEDIUMTEXT"/>
+            </basic>
+            <basic name="createdAt">
+                <column name="created_at" nullable="false" updatable="false"/>
+            </basic>
+        </attributes>
+    </entity>
+
+</entity-mappings>
