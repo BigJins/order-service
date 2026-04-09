@@ -6,18 +6,3 @@ spring:
 
 server:
   port: 8081
-
-management:
-  otlp:
-    metrics:
-      export:
-        enabled: false   # Prometheus 스크래핑 사용 — OTLP metrics 비활성화
-
-kafka:
-  topics:
-    payment-result:   payment.result.v1
-    order-created:    order.created.v1
-    order-paid:       order.paid.v1
-    order-failed:     order.failed.v1
-    order-confirmed:  order.confirmed.v1
-    delivery-completed: delivery.completed.v1
