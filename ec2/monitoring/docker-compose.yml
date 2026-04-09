@@ -4,10 +4,6 @@
 # 시작:
 #   ORDER_SERVICE_IP=<주문서비스EC2-IP> docker compose up -d
 #
-# k6 실행:
-#   k6 run --out experimental-prometheus-rw=http://localhost:9090/api/v1/write \
-#     order-write-read-test.js
-#
 # 포트:
 #   Grafana:    3000  (admin/admin)
 #   Prometheus: 9090
