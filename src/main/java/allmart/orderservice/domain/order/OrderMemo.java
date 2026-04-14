@@ -25,10 +25,7 @@ public record OrderMemo(
         deliveryRequest = normalize(deliveryRequest);
     }
 
-    public static OrderMemo of(@Nullable String orderRequest, @Nullable String deliveryRequest) {
-        return new OrderMemo(orderRequest, deliveryRequest);
-    }
-
+    /** 빈 문자열 → null 정규화, 200자 초과 시 예외 */
     private static String normalize(@Nullable String value) {
         if (value == null) return null;
         String trimmed = value.trim();

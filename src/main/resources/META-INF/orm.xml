@@ -96,12 +96,16 @@
             <basic name="martId">
                 <column name="mart_id" nullable="false" unique="true"/>
             </basic>
-            <basic name="deliveryFeeAmount">
-                <column name="delivery_fee_amount" nullable="false"/>
-            </basic>
-            <basic name="freeDeliveryThreshold">
-                <column name="free_delivery_threshold" nullable="false"/>
-            </basic>
+            <embedded name="deliveryFee">
+                <attribute-override name="amount">
+                    <column name="delivery_fee_amount" nullable="false"/>
+                </attribute-override>
+            </embedded>
+            <embedded name="freeDeliveryThreshold">
+                <attribute-override name="amount">
+                    <column name="free_delivery_threshold" nullable="false"/>
+                </attribute-override>
+            </embedded>
             <basic name="updatedAt">
                 <column name="updated_at" nullable="false"/>
             </basic>
@@ -123,7 +127,7 @@
                 <column name="aggregate_type" nullable="false" length="50"/>
             </basic>
             <basic name="payload">
-                <column name="payload" nullable="false" column-definition="MEDIUMTEXT"/>
+                <column name="payload" nullable="false" column-definition="LONGTEXT"/>
             </basic>
             <basic name="createdAt">
                 <column name="created_at" nullable="false" updatable="false"/>

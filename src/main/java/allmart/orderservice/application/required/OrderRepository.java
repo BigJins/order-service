@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -13,9 +14,11 @@ import java.util.Optional;
 public interface OrderRepository extends Repository<Order, Long> {
     Order save(Order order);
 
+    /** tossOrderId로 주문 단순 조회 (Kafka 결제 결과 처리 시 사용) */
     Optional<Order> findByTossOrderId(String tossOrderId);
 
-    @Query("""                                                                                                                                                                                    
+    /** orderId로 orderLines fetch join 조회 — N+1 방지 */
+    @Query("""
           select distinct o
           from Order o
           left join fetch o.orderLines

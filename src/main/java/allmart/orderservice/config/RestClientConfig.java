@@ -8,6 +8,10 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 
+/**
+ * 서비스 간 동기 HTTP 클라이언트 설정.
+ * 연결 타임아웃 3초 / 읽기 타임아웃 5초 공통 적용.
+ */
 @Configuration
 public class RestClientConfig {
 
@@ -17,6 +21,7 @@ public class RestClientConfig {
     @Value("${internal.inventory-service.url:http://localhost:8085}")
     private String inventoryServiceUrl;
 
+    /** product-service 전용 RestClient (baseUrl + 타임아웃) */
     @Bean
     public RestClient productServiceRestClient() {
         return RestClient.builder()
@@ -25,6 +30,7 @@ public class RestClientConfig {
                 .build();
     }
 
+    /** inventory-service 전용 RestClient (baseUrl + 타임아웃) */
     @Bean
     public RestClient inventoryServiceRestClient() {
         return RestClient.builder()
@@ -33,6 +39,7 @@ public class RestClientConfig {
                 .build();
     }
 
+    /** 연결 3초 / 읽기 5초 타임아웃 공통 팩토리 */
     private SimpleClientHttpRequestFactory requestFactory() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(3));

@@ -1,0 +1,13 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+
+kafka:
+  topics:
+    payment-result: payment.result.v1
+    order-paid: order.paid.v1
+    delivery-completed: delivery.completed.v1
+    order-canceled: order.canceled.v1
+  consumer:
+    group-id: order-service-test

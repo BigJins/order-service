@@ -1,22 +1,21 @@
 package allmart.orderservice.domain.event;
 
-import allmart.orderservice.config.SnowflakeGenerated;
+import allmart.orderservice.domain.AbstractEntity;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Outbox 패턴 이벤트 엔티티.
+ * 주문 저장과 동일 트랜잭션에 저장 → Debezium CDC가 감지 후 Kafka로 릴레이.
+ */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OutboxEvent {
-
-    @Id
-    @SnowflakeGenerated
-    private Long id;
+public class OutboxEvent extends AbstractEntity {
 
     // ORDER_CREATED 같은 타입
     private String eventType;
@@ -32,6 +31,7 @@ public class OutboxEvent {
 
     private LocalDateTime createdAt;
 
+    /** Outbox 이벤트 생성 (정적 팩토리) */
     public static OutboxEvent create(
             String eventType,
             String aggregateType,

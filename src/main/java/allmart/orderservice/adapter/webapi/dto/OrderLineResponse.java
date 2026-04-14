@@ -9,7 +9,7 @@ public record OrderLineResponse(
         int quantity,
         long lineAmount
 ) {
-    static OrderLineResponse of(OrderLine ol) {
+    public static OrderLineResponse of(OrderLine ol) {
         return new OrderLineResponse(
                 ol.productId(),
                 ol.productNameSnapshot(),

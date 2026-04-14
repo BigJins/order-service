@@ -10,4 +10,5 @@ public interface OutboxEventPublisher {
     void publishOrderPaid(Order order);
     void publishOrderFailed(Order order);
     void publishOrderConfirmed(Order order);
+    void publishOrderCanceled(Order order);
 }

@@ -42,6 +42,7 @@ public record DeliverySnapshot(
             throw new IllegalArgumentException("detailAddress must not be blank");
     }
 
+    /** 우편번호 + 도로명주소 + 상세주소 한 줄 문자열 */
     public String fullAddress() {
         return "(" + zipCode + ") " + roadAddress + " " + detailAddress;
     }

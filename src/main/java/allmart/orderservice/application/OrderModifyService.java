@@ -1,27 +1,34 @@
 package allmart.orderservice.application;
 
-import allmart.orderservice.adapter.client.InventoryServiceClient;
-import allmart.orderservice.adapter.client.ProductServiceClient;
-import allmart.orderservice.adapter.client.dto.InventoryReserveRequest;
-import allmart.orderservice.adapter.client.dto.ProductPriceResponse;
+import allmart.orderservice.application.event.canceled.OrderCanceledEvent;
+import allmart.orderservice.application.event.confirmed.OrderConfirmedEvent;
+import allmart.orderservice.application.event.created.OrderCreatedEvent;
+import allmart.orderservice.application.event.failed.OrderPaymentFailedEvent;
+import allmart.orderservice.application.event.paid.OrderPaidEvent;
 import allmart.orderservice.application.provided.OrderCreator;
 import allmart.orderservice.application.required.MartDeliveryConfigRepository;
 import allmart.orderservice.application.required.OrderRepository;
-import allmart.orderservice.application.required.OutboxEventPublisher;
+import allmart.orderservice.application.required.ProductPort;
 import allmart.orderservice.domain.order.MartDeliveryConfig;
-import allmart.orderservice.domain.order.OrderNotFoundException;
+import allmart.orderservice.domain.order.Money;
 import allmart.orderservice.domain.order.Order;
 import allmart.orderservice.domain.order.OrderCreateRequest;
 import allmart.orderservice.domain.order.OrderLine;
-import allmart.orderservice.domain.order.OrderPayMethod;
+import allmart.orderservice.domain.order.OrderNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
+import java.util.Optional;
 
+/**
+ * 주문 생성 및 상태 전이 유스케이스 구현체.
+ * 도메인 이벤트를 발행하고, @TransactionalEventListener 핸들러가 결제 수단별 Outbox 저장과 재고 처리를 담당한다.
+ */
 @Slf4j
 @Service
 @Transactional
@@ -31,160 +38,124 @@ public class OrderModifyService implements OrderCreator {
 
     private final OrderRepository orderRepository;
     private final MartDeliveryConfigRepository martDeliveryConfigRepository;
-    private final ProductServiceClient productServiceClient;
-    private final InventoryServiceClient inventoryServiceClient;
-    private final OutboxEventPublisher outboxEventPublisher;
+    private final ProductPort productPort;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
-     * 주문 생성 흐름:
-     * 1. Order 도메인 객체 생성 (tossOrderId 생성, DB 저장 전)
-     * 2. product-service: 각 상품의 현재 가격 검증
-     * 3. inventory-service: 재고 예약 (실패 시 주문 생성 중단)
-     * 4. OrderRepository 저장 (orderId 확정)
+     * 주문 생성 — 배달 설정 조회 → 가격 검증 → Order 저장 → OrderCreatedEvent 발행.
+     * 재고 예약은 inventory-service가 order.created.v1을 소비하여 비동기 처리.
+     * 이후 Outbox 저장은 @TransactionalEventListener 핸들러가 담당.
      */
     @Override
-    public Order create(OrderCreateRequest orderCreateRequest) {
-        Long martId = orderCreateRequest.martSnapshot().martId();
-        MartDeliveryConfig deliveryConfig = martDeliveryConfigRepository.findByMartId(martId)
-                .orElseThrow(() -> new IllegalArgumentException("마트 배달 설정이 등록되지 않았습니다. martId=" + martId));
+    public Order create(OrderCreateRequest req) {
+        MartDeliveryConfig deliveryConfig = martDeliveryConfigRepository.findByMartId(req.martSnapshot().martId())
+                .orElseThrow(() -> new IllegalArgumentException("마트 배달 설정이 등록되지 않았습니다. martId=" + req.martSnapshot().martId()));
 
-        // 가격 검증 + taxType 서버 주입 → enriched orderLines로 교체
-        List<OrderLine> enrichedLines = enrichAndValidatePrices(orderCreateRequest.orderLines());
+        List<OrderLine> enrichedLines = enrichAndValidatePrices(req.orderLines());
         OrderCreateRequest enrichedRequest = new OrderCreateRequest(
-                orderCreateRequest.buyerId(), orderCreateRequest.payMethod(), enrichedLines,
-                orderCreateRequest.deliverySnapshot(), orderCreateRequest.martSnapshot(), orderCreateRequest.orderMemo()
-        );
+                req.buyerId(), req.payMethod(), enrichedLines,
+                req.deliverySnapshot(), req.martSnapshot(), req.orderMemo());
 
         Order order = Order.create(enrichedRequest, deliveryConfig);
-
-        reserveInventory(order);
-
         Order saved = orderRepository.save(order);
         log.info("주문 생성 완료: orderId={}, tossOrderId={}, buyerId={}, payMethod={}, totalAmount={}, status={}",
                 saved.getId(), saved.getTossOrderId(), saved.getBuyerId(),
                 saved.getPayMethod(), saved.getTotalAmount().amount(), saved.getStatus());
 
-        // order.created.v1 — order-query-service가 이 이벤트로 MongoDB 도큐먼트를 초기 생성
-        outboxEventPublisher.publishOrderCreated(saved);
-
-        // 후불 현금은 pay-service를 거치지 않으므로 주문 생성 시점에 즉시 배송 트리거
-        if (saved.getPayMethod() == OrderPayMethod.CASH_ON_DELIVERY) {
-            outboxEventPublisher.publishOrderPaid(saved);
-            confirmInventory(saved.getTossOrderId());
-            log.info("후불 현금 — 배송 즉시 트리거: orderId={}, tossOrderId={}", saved.getId(), saved.getTossOrderId());
-        }
-
+        eventPublisher.publishEvent(new OrderCreatedEvent(saved));
         return saved;
     }
 
+    /** payment.result.v1 DONE 처리 — 주문 PAID 전이 후 OrderPaidEvent 발행 */
     @Override
-    public void applyPaid(String tossOrderId, String paymentKey, long amount) {
-        Order order = orderRepository.findByTossOrderId(tossOrderId).orElse(null);
-        if (order == null) {
-            log.warn("Kafka 메시지 무시 — 존재하지 않는 tossOrderId: {}", tossOrderId);
-            return;
-        }
-
-        order.markAsPaid(amount);
-        outboxEventPublisher.publishOrderPaid(order);  // Outbox: order.paid.v1 저장 (같은 트랜잭션)
-        confirmInventory(tossOrderId);
-        log.info("결제 완료: tossOrderId={}, orderId={}, buyerId={}, amount={}", tossOrderId, order.getId(), order.getBuyerId(), amount);
+    public void applyPaid(String tossOrderId, String paymentKey, Money amount) {
+        findByTossOrderId(tossOrderId).ifPresent(order -> {
+            order.markAsPaid(amount);
+            eventPublisher.publishEvent(new OrderPaidEvent(order));
+            log.info("결제 완료: tossOrderId={}, orderId={}, buyerId={}, amount={}", tossOrderId, order.getId(), order.getBuyerId(), amount);
+        });
     }
 
+    /** payment.result.v1 FAILED 처리 — 주문 PAYMENT_FAILED 전이 후 OrderPaymentFailedEvent 발행 */
     @Override
-    public void applyPaymentFailed(String tossOrderId, String paymentKey, long amount) {
-        Order order = orderRepository.findByTossOrderId(tossOrderId).orElse(null);
-        if (order == null) {
-            log.warn("Kafka 메시지 무시 — 존재하지 않는 tossOrderId: {}", tossOrderId);
-            return;
-        }
-
-        order.markPaymentFailed();
-        outboxEventPublisher.publishOrderFailed(order);
-        releaseInventory(tossOrderId);
-        log.warn("결제 실패: tossOrderId={}, orderId={}, buyerId={}", tossOrderId, order.getId(), order.getBuyerId());
+    public void applyPaymentFailed(String tossOrderId, String paymentKey, Money amount) {
+        findByTossOrderId(tossOrderId).ifPresent(order -> {
+            order.markPaymentFailed();
+            eventPublisher.publishEvent(new OrderPaymentFailedEvent(order));
+            log.warn("결제 실패: tossOrderId={}, orderId={}, buyerId={}", tossOrderId, order.getId(), order.getBuyerId());
+        });
     }
 
+    /** delivery.completed.v1 처리 — 주문 CONFIRMED 전이 후 OrderConfirmedEvent 발행 */
     @Override
     public void applyDeliveryCompleted(Long orderId) {
-        Order order = orderRepository.findDetailById(orderId).orElse(null);
-        if (order == null) {
-            log.warn("Kafka 메시지 무시 — 존재하지 않는 orderId: {}", orderId);
-            return;
-        }
-        order.markAsCompleted();
-        outboxEventPublisher.publishOrderConfirmed(order);
-        log.info("배달 완료 → 주문 CONFIRMED: orderId={}, buyerId={}", orderId, order.getBuyerId());
+        orderRepository.findDetailById(orderId).ifPresentOrElse(
+                order -> {
+                    order.markAsCompleted();
+                    eventPublisher.publishEvent(new OrderConfirmedEvent(order));
+                    log.info("배달 완료 → 주문 CONFIRMED: orderId={}, buyerId={}", orderId, order.getBuyerId());
+                },
+                () -> log.warn("Kafka 메시지 무시 — 존재하지 않는 orderId: {}", orderId)
+        );
     }
 
-    @Override
-    public void confirmCashPayment(Long orderId) {
-        Order order = orderRepository.findDetailById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다: " + orderId));
-        order.confirmCashPayment();
-        outboxEventPublisher.publishOrderPaid(order); // 배송 생성 트리거
-        confirmInventory(order.getTossOrderId());     // 재고 확정 (RESERVED → DEDUCTED)
-        log.info("현금 선불 확인 → PAID: orderId={}, tossOrderId={}", orderId, order.getTossOrderId());
-    }
-
+    /** 재결제 요청 — PAYMENT_FAILED → PENDING_PAYMENT, tossOrderId 재발급 */
     @Override
     public void retryPayment(Long orderId, Long buyerId) {
         Order order = orderRepository.findDetailById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-        if (!order.getBuyerId().equals(buyerId)) {
-            throw new IllegalStateException("본인의 주문만 재결제할 수 있습니다.");
-        }
         String oldTossOrderId = order.getTossOrderId();
-        order.retryPayment();
+        order.retryPayment(buyerId);
         log.info("재결제 요청 → PENDING_PAYMENT: orderId={}, buyerId={}, 구 tossOrderId={}, 신 tossOrderId={}",
                 orderId, buyerId, oldTossOrderId, order.getTossOrderId());
     }
 
+    /** 주문 취소 — PENDING_PAYMENT → CANCELED, OrderCanceledEvent 발행 */
+    @Override
+    public void cancelOrder(Long orderId, Long buyerId) {
+        Order order = orderRepository.findDetailById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        order.cancel(buyerId);
+        eventPublisher.publishEvent(new OrderCanceledEvent(order));
+        log.info("주문 취소: orderId={}, buyerId={}, tossOrderId={}", orderId, buyerId, order.getTossOrderId());
+    }
+
+    /** 재고 부족 시 시스템 자동 취소 — buyerId 검증 없음, OrderCanceledEvent 발행 */
+    @Override
+    public void cancelByReserveFailed(String tossOrderId) {
+        findByTossOrderId(tossOrderId).ifPresent(order -> {
+            order.cancelBySystem();
+            eventPublisher.publishEvent(new OrderCanceledEvent(order));
+            log.warn("재고 부족으로 주문 자동 취소: tossOrderId={}, orderId={}", tossOrderId, order.getId());
+        });
+    }
+
+    /** tossOrderId로 주문 조회. 없으면 WARN 로그 후 empty 반환 — Kafka skip 패턴 */
+    private Optional<Order> findByTossOrderId(String tossOrderId) {
+        var opt = orderRepository.findByTossOrderId(tossOrderId);
+        if (opt.isEmpty()) log.warn("Kafka 메시지 무시 — 존재하지 않는 tossOrderId: {}", tossOrderId);
+        return opt;
+    }
+
     /**
      * 가격 검증 + taxType 서버 주입.
-     * 클라이언트가 보낸 unitPrice를 product-service 현재 가격과 대조 후,
+     * 클라이언트가 보낸 unitPrice를 product-service 현재 가격과 대조 후
      * taxType을 서버에서 채워 새 OrderLine 리스트를 반환.
      */
     private List<OrderLine> enrichAndValidatePrices(List<OrderLine> orderLines) {
         return orderLines.stream()
                 .map(line -> {
-                    ProductPriceResponse resp = productServiceClient.getPrice(line.productId());
-                    if (resp.price() != line.unitPrice().amount()) {
+                    ProductPort.ProductInfo info = productPort.getProductInfo(line.productId());
+                    if (!info.price().equals(line.unitPrice())) {
                         throw new IllegalArgumentException(
                                 "가격이 변경된 상품이 있습니다. productId=" + line.productId()
                                 + " (요청=" + line.unitPrice().amount()
-                                + ", 현재=" + resp.price() + ")"
-                        );
+                                + ", 현재=" + info.price().amount() + ")");
                     }
                     return new OrderLine(line.productId(), line.productNameSnapshot(),
-                            line.unitPrice(), line.quantity(), resp.taxType());
+                            line.unitPrice(), line.quantity(), info.taxType());
                 })
                 .toList();
     }
 
-    private void reserveInventory(Order order) {
-        List<InventoryReserveRequest.ReserveItem> items = order.getOrderLines().stream()
-                .map(line -> new InventoryReserveRequest.ReserveItem(line.productId(), line.quantity()))
-                .toList();
-
-        inventoryServiceClient.reserve(new InventoryReserveRequest(order.getTossOrderId(), items));
-    }
-
-    private void confirmInventory(String tossOrderId) {
-        try {
-            inventoryServiceClient.confirm(tossOrderId);
-        } catch (Exception e) {
-            // 재고 확정 실패는 주문 상태 전이를 막지 않음 (별도 알람/재처리 필요)
-            log.error("재고 확정 실패 — tossOrderId={}, error={}", tossOrderId, e.getMessage());
-        }
-    }
-
-    private void releaseInventory(String tossOrderId) {
-        try {
-            inventoryServiceClient.release(tossOrderId);
-        } catch (Exception e) {
-            // 재고 해제 실패는 주문 상태 전이를 막지 않음 (별도 알람/재처리 필요)
-            log.error("재고 해제 실패 — tossOrderId={}, error={}", tossOrderId, e.getMessage());
-        }
-    }
 }

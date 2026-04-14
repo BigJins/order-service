@@ -8,7 +8,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+/** 주문 REST API 컨트롤러 — 주문 생성·재결제·취소 (쓰기 전용, 조회는 order-query-service) */
 @RestController
 @RequiredArgsConstructor
 public class OrderApi {
@@ -27,6 +29,7 @@ public class OrderApi {
             @RequestBody @Valid OrderCreateRequest request,
             @RequestHeader(value = "X-User-Id", required = false) Long buyerIdFromGateway) {
 
+        // Gateway 주입 헤더가 있으면 request body의 buyerId를 덮어씀 (클라이언트 조작 방지)
         OrderCreateRequest effectiveRequest = buyerIdFromGateway != null
                 ? new OrderCreateRequest(buyerIdFromGateway, request.payMethod(), request.orderLines(),
                         request.deliverySnapshot(), request.martSnapshot(), request.orderMemo())
@@ -36,24 +39,32 @@ public class OrderApi {
         return OrderCreatorResponse.of(order);
     }
 
-    /** 현금 선불 — 판매자가 현금 수령 확인 (MEMBER 전용) */
-    @PatchMapping("/api/orders/{orderId}/confirm-cash")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void confirmCash(
-            @PathVariable Long orderId,
-            @RequestHeader(value = "X-User-Type", required = false) String userType) {
-        if (!"MEMBER".equals(userType)) throw new IllegalStateException("판매자 권한이 필요합니다.");
-        orderCreator.confirmCashPayment(orderId);
-    }
-
     /** 결제 실패 후 재결제 요청 (CUSTOMER 전용) */
     @PatchMapping("/api/orders/{orderId}/retry-payment")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void retryPayment(
             @PathVariable Long orderId,
             @RequestHeader(value = "X-User-Id", required = false) Long buyerIdFromGateway) {
-        if (buyerIdFromGateway == null) throw new IllegalStateException("인증 정보가 없습니다.");
-        orderCreator.retryPayment(orderId, buyerIdFromGateway);
+        orderCreator.retryPayment(orderId, requireBuyerId(buyerIdFromGateway));
+    }
+
+    /**
+     * 주문 취소 (CUSTOMER 전용, PENDING_PAYMENT 상태만 허용).
+     * 취소 후 order.canceled.v1 Outbox → Debezium → inventory-service 재고 해제 (비동기)
+     */
+    @DeleteMapping("/api/orders/{orderId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelOrder(
+            @PathVariable Long orderId,
+            @RequestHeader(value = "X-User-Id", required = false) Long buyerIdFromGateway) {
+        orderCreator.cancelOrder(orderId, requireBuyerId(buyerIdFromGateway));
+    }
+
+    /** X-User-Id 헤더 필수 검증 — null이면 403 */
+    private Long requireBuyerId(Long buyerIdFromGateway) {
+        if (buyerIdFromGateway == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인증 정보가 없습니다.");
+        return buyerIdFromGateway;
     }
 
 }

@@ -20,7 +20,7 @@ record OrderCreatorTest(OrderCreator orderCreator, EntityManager entityManager) 
 
     @BeforeEach
     void setUp() {
-        entityManager.persist(MartDeliveryConfig.create(1L, 3_000L, 50_000L));
+        entityManager.persist(MartDeliveryConfig.create(1L, Money.of(3_000L), Money.of(50_000L)));
         entityManager.flush();
     }
 

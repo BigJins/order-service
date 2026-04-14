@@ -28,7 +28,7 @@ class OrderTest {
         orderLines = List.of(orderLine);
         deliverySnapshot = new DeliverySnapshot("47352", "부산광역시 부산진구", "범내골역 4번 출구");
         martSnapshot = new MartSnapshot(1L, "부산 범내골 마트", null);
-        deliveryConfig = MartDeliveryConfig.create(1L, 3_000L, 50_000L);
+        deliveryConfig = MartDeliveryConfig.create(1L, Money.of(3_000L), Money.of(50_000L));
         req = new OrderCreateRequest(buyerId, OrderPayMethod.CARD, orderLines, deliverySnapshot, martSnapshot, null);
         order = Order.create(req, deliveryConfig);
     }
@@ -48,14 +48,14 @@ class OrderTest {
     @Test
     @DisplayName("금액이 일치하면 PAID 상태로 변경된다")
     void markAsPaid_whenAmountMatches_thenStatusBecomePaid() {
-        order.markAsPaid(33000L);
+        order.markAsPaid(Money.of(33000L));
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
     }
 
     @Test
     @DisplayName("결제 금액이 주문 금액과 다르면 IllegalArgumentException이 발생한다")
     void markAsPaid_whenAmountMismatches_thenThrows() {
-        assertThatThrownBy(() -> order.markAsPaid(1L))
+        assertThatThrownBy(() -> order.markAsPaid(Money.of(1L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("결제 금액 불일치");
     }
@@ -63,8 +63,8 @@ class OrderTest {
     @Test
     @DisplayName("이미 PAID 상태에서 재결제 시도하면 조용히 무시된다 (Kafka 중복 메시지 멱등 처리)")
     void markAsPaid_whenAlreadyPaid_thenIgnored() {
-        order.markAsPaid(33000L);
-        order.markAsPaid(33000L);
+        order.markAsPaid(Money.of(33000L));
+        order.markAsPaid(Money.of(33000L));
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
     }
 
@@ -93,12 +93,22 @@ class OrderTest {
     }
 
     @Test
-    @DisplayName("CASH_ON_DELIVERY 주문은 생성 시 즉시 PAID 상태")
-    void createOrder_cashOnDelivery_isAlreadyPaid() {
+    @DisplayName("CASH_ON_DELIVERY 주문은 생성 시 PAID 상태이지만 paidAt은 null — 실제 결제는 배달 완료 시")
+    void createOrder_cashOnDelivery_isPaidButPaidAtIsNull() {
         OrderCreateRequest codReq = new OrderCreateRequest(
                 buyerId, OrderPayMethod.CASH_ON_DELIVERY, orderLines, deliverySnapshot, martSnapshot, null);
         Order codOrder = Order.create(codReq, deliveryConfig);
         assertThat(codOrder.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(codOrder.getPaidAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("후불 결제 주문은 배달 완료(markAsCompleted) 시점에 paidAt이 기록된다")
+    void markAsCompleted_onDeliveryPayment_thenPaidAtIsRecorded() {
+        OrderCreateRequest codReq = new OrderCreateRequest(
+                buyerId, OrderPayMethod.CASH_ON_DELIVERY, orderLines, deliverySnapshot, martSnapshot, null);
+        Order codOrder = Order.create(codReq, deliveryConfig);
+        codOrder.markAsCompleted();
         assertThat(codOrder.getPaidAt()).isNotNull();
     }
 
@@ -120,7 +130,7 @@ class OrderTest {
     @Test
     @DisplayName("결제 완료 후 배달 완료 시 CONFIRMED 상태로 변경된다")
     void markAsCompleted_whenPaid_thenStatusBecomesConfirmed() {
-        order.markAsPaid(33000L);
+        order.markAsPaid(Money.of(33000L));
         order.markAsCompleted();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(order.getConfirmedAt()).isNotNull();
@@ -136,30 +146,10 @@ class OrderTest {
     @Test
     @DisplayName("이미 CONFIRMED 상태에서 재호출해도 멱등 처리된다")
     void markAsCompleted_whenAlreadyConfirmed_thenIgnored() {
-        order.markAsPaid(33000L);
+        order.markAsPaid(Money.of(33000L));
         order.markAsCompleted();
         order.markAsCompleted();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
-    }
-
-    @Test
-    @DisplayName("현금 선불 확인 시 PAID 상태로 변경된다")
-    void confirmCashPayment_thenStatusBecomesPaid() {
-        OrderCreateRequest cashReq = new OrderCreateRequest(
-                buyerId, OrderPayMethod.CASH_PREPAID, orderLines, deliverySnapshot, martSnapshot, null);
-        Order cashOrder = Order.create(cashReq, deliveryConfig);
-
-        cashOrder.confirmCashPayment();
-
-        assertThat(cashOrder.getStatus()).isEqualTo(OrderStatus.PAID);
-        assertThat(cashOrder.getPaidAt()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("CASH_PREPAID 외 결제수단에 현금 선불 확인하면 예외가 발생한다")
-    void confirmCashPayment_whenNotCashPrepaid_thenThrows() {
-        assertThatThrownBy(() -> order.confirmCashPayment())
-                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -168,7 +158,7 @@ class OrderTest {
         String originalTossOrderId = order.getTossOrderId();
         order.markPaymentFailed();
 
-        order.retryPayment();
+        order.retryPayment(buyerId);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
         assertThat(order.getTossOrderId()).isNotEqualTo(originalTossOrderId);
@@ -177,67 +167,101 @@ class OrderTest {
     @Test
     @DisplayName("PAYMENT_FAILED 상태가 아닐 때 재결제 요청하면 예외가 발생한다")
     void retryPayment_whenNotPaymentFailed_thenThrows() {
-        assertThatThrownBy(() -> order.retryPayment())
+        assertThatThrownBy(() -> order.retryPayment(buyerId))
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    // ── 배달료 세금 계산 (applyDeliveryFee 단위 테스트) ─────────────────────
+    @Test
+    @DisplayName("타인의 주문을 재결제 요청하면 예외가 발생한다")
+    void retryPayment_whenNotOwner_thenThrows() {
+        order.markPaymentFailed();
+        assertThatThrownBy(() -> order.retryPayment(999L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("본인의 주문만");
+    }
+
+    // ── 주문 취소 ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("배달료 3,300원 적용 시 공급가액 3,000원, 부가세 300원이 계산된다")
-    void applyDeliveryFee_3300_thenSupply3000Vat300() {
-        order.applyDeliveryFee(Money.of(3_300));
-
-        assertThat(order.getDeliveryFee().amount()).isEqualTo(3_300);
-        assertThat(order.getDeliverySupply().amount()).isEqualTo(3_000);
-        assertThat(order.getDeliveryVat().amount()).isEqualTo(300);
+    @DisplayName("PENDING_PAYMENT 상태에서 취소 시 CANCELED 상태로 변경되고 canceledAt이 설정된다")
+    void cancel_whenPendingPayment_thenStatusBecomesCanceled() {
+        order.cancel(buyerId);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
+        assertThat(order.getCanceledAt()).isNotNull();
     }
 
     @Test
-    @DisplayName("배달료 1,100원 적용 시 공급가액 1,000원, 부가세 100원이 계산된다")
-    void applyDeliveryFee_1100_thenSupply1000Vat100() {
-        order.applyDeliveryFee(Money.of(1_100));
+    @DisplayName("이미 CANCELED 상태에서 재호출해도 멱등 처리된다")
+    void cancel_whenAlreadyCanceled_thenIgnored() {
+        order.cancel(buyerId);
+        order.cancel(buyerId);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
+    }
 
-        assertThat(order.getDeliveryFee().amount()).isEqualTo(1_100);
-        assertThat(order.getDeliverySupply().amount()).isEqualTo(1_000);
-        assertThat(order.getDeliveryVat().amount()).isEqualTo(100);
+    @Test
+    @DisplayName("PAID 상태에서 취소 시도하면 예외가 발생한다")
+    void cancel_whenPaid_thenThrows() {
+        order.markAsPaid(Money.of(33000L));
+        assertThatThrownBy(() -> order.cancel(buyerId))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("타인의 주문을 취소하면 예외가 발생한다")
+    void cancel_whenNotOwner_thenThrows() {
+        assertThatThrownBy(() -> order.cancel(999L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("본인의 주문만");
+    }
+
+    // ── 배달료 세금 계산 (Order.create 경유 검증) ────────────────────────────
+
+    @Test
+    @DisplayName("배달료 3,300원 설정 시 공급가액 3,000원, 부가세 300원이 계산된다")
+    void deliveryFee_3300_thenSupply3000Vat300() {
+        // given: 배달료 3,300원, 무료 기준 999,999원 (무조건 유료)
+        MartDeliveryConfig config = MartDeliveryConfig.create(1L, Money.of(3_300L), Money.of(999_999L));
+        Order o = Order.create(req, config);
+
+        assertThat(o.getDeliveryFee().amount()).isEqualTo(3_300);
+        assertThat(o.getDeliverySupply().amount()).isEqualTo(3_000);
+        assertThat(o.getDeliveryVat().amount()).isEqualTo(300);
+    }
+
+    @Test
+    @DisplayName("배달료 1,100원 설정 시 공급가액 1,000원, 부가세 100원이 계산된다")
+    void deliveryFee_1100_thenSupply1000Vat100() {
+        MartDeliveryConfig config = MartDeliveryConfig.create(1L, Money.of(1_100L), Money.of(999_999L));
+        Order o = Order.create(req, config);
+
+        assertThat(o.getDeliveryFee().amount()).isEqualTo(1_100);
+        assertThat(o.getDeliverySupply().amount()).isEqualTo(1_000);
+        assertThat(o.getDeliveryVat().amount()).isEqualTo(100);
     }
 
     @Test
     @DisplayName("배달료가 1.1로 나누어 떨어지지 않으면 공급가액은 반올림되고 공급가액+부가세=배달료이다")
-    void applyDeliveryFee_notDivisible_thenSupplyRounded() {
+    void deliveryFee_notDivisible_thenSupplyRounded() {
         // 1,000 / 1.1 = 909.09... → 반올림 909, 부가세 91
-        order.applyDeliveryFee(Money.of(1_000));
+        MartDeliveryConfig config = MartDeliveryConfig.create(1L, Money.of(1_000L), Money.of(999_999L));
+        Order o = Order.create(req, config);
 
-        assertThat(order.getDeliverySupply().amount()).isEqualTo(909);
-        assertThat(order.getDeliveryVat().amount()).isEqualTo(91);
-        assertThat(order.getDeliverySupply().amount() + order.getDeliveryVat().amount()).isEqualTo(1_000);
+        assertThat(o.getDeliverySupply().amount()).isEqualTo(909);
+        assertThat(o.getDeliveryVat().amount()).isEqualTo(91);
+        assertThat(o.getDeliverySupply().amount() + o.getDeliveryVat().amount()).isEqualTo(1_000);
     }
 
     @Test
-    @DisplayName("freeDelivery=true 인 경우 배달료를 전달해도 공급가액과 부가세 모두 0원이다")
-    void applyDeliveryFee_whenFreeDelivery_thenAllZero() {
-        // given: 5만원 이상 주문으로 freeDelivery=true 인 order
+    @DisplayName("주문 금액이 무료배송 기준 이상이면 배달료·공급가·부가세 모두 0원이다")
+    void freeDelivery_whenAboveThreshold_thenAllZero() {
+        // given: 무료 기준 50,000원, 상품 합계 60,000원
         OrderLine bigLine = new OrderLine(1L, "고급 상품", new Money(30_000), 2, "TAXABLE");
         Order freeOrder = Order.create(new OrderCreateRequest(
                 buyerId, OrderPayMethod.CARD, List.of(bigLine), deliverySnapshot, martSnapshot, null), deliveryConfig);
 
-        // when: 배달료를 다시 적용해도 freeDelivery 플래그가 우선
-        freeOrder.applyDeliveryFee(Money.of(3_000));
-
-        // then
         assertThat(freeOrder.getDeliveryFee().amount()).isZero();
         assertThat(freeOrder.getDeliverySupply().amount()).isZero();
         assertThat(freeOrder.getDeliveryVat().amount()).isZero();
-    }
-
-    @Test
-    @DisplayName("배달료가 null이면 공급가액과 부가세 모두 0원이다")
-    void applyDeliveryFee_null_thenAllZero() {
-        order.applyDeliveryFee(null);
-
-        assertThat(order.getDeliveryFee().amount()).isZero();
-        assertThat(order.getDeliverySupply().amount()).isZero();
-        assertThat(order.getDeliveryVat().amount()).isZero();
+        assertThat(freeOrder.getFreeDelivery()).isTrue();
     }
 }

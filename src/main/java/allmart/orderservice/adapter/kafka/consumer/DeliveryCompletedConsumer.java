@@ -1,4 +1,4 @@
-package allmart.orderservice.adapter.kafka;
+package allmart.orderservice.adapter.kafka.consumer;
 
 import allmart.orderservice.adapter.kafka.dto.DeliveryCompletedMessage;
 import allmart.orderservice.application.provided.OrderCreator;
@@ -12,15 +12,16 @@ import tools.jackson.databind.ObjectMapper;
  * delivery.completed.v1 이벤트 수신
  * 배달 완료 시 주문을 CONFIRMED(완료) 상태로 전이
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class DeliveryCompletedConsumer {
 
     private final ObjectMapper objectMapper;
     private final OrderCreator orderCreator;
 
-    @KafkaListener(topics = "${kafka.topics.delivery-completed}", groupId = "order-service")
+    /** delivery.completed.v1 메시지 수신 — Debezium envelope 처리 후 주문 CONFIRMED 전이 위임 */
+    @KafkaListener(topics = "${kafka.topics.delivery-completed}", groupId = "${kafka.consumer.group-id:order-service}")
     public void onMessage(String value) {
         try {
             // Debezium schema envelope 처리: {"schema":...,"payload":"<json>"} 형식 대응

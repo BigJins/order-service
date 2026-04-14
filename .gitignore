@@ -47,3 +47,7 @@ out/
 .claude/
 .agents/
 skills-lock.json
+
+### Markdown docs (설계 문서 — README.md만 예외) ###
+*.md
+!README.md

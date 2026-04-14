@@ -9,6 +9,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+/** 주문 생성 요청 DTO. orderLines는 방어적 복사(List.copyOf)로 불변 보장. */
 public record OrderCreateRequest(
         @NotNull(message = "buyerId must not be null")
         Long buyerId,

@@ -19,31 +19,32 @@ public class MartDeliveryConfig extends AbstractEntity {
 
     private Long martId;
 
-    private long deliveryFeeAmount;
+    private Money deliveryFee;
 
-    private long freeDeliveryThreshold;
+    private Money freeDeliveryThreshold;
 
     private LocalDateTime updatedAt;
 
-    public static MartDeliveryConfig create(Long martId, long deliveryFeeAmount, long freeDeliveryThreshold) {
-        validate(deliveryFeeAmount, freeDeliveryThreshold);
+    /** 마트 배달 설정 최초 생성 */
+    public static MartDeliveryConfig create(Long martId, Money deliveryFee, Money freeDeliveryThreshold) {
         MartDeliveryConfig config = new MartDeliveryConfig();
-        config.martId = martId;
-        config.deliveryFeeAmount = deliveryFeeAmount;
+        config.martId               = martId;
+        config.deliveryFee          = deliveryFee;
         config.freeDeliveryThreshold = freeDeliveryThreshold;
-        config.updatedAt = LocalDateTime.now();
+        config.updatedAt            = LocalDateTime.now();
         return config;
     }
 
-    public void update(long deliveryFeeAmount, long freeDeliveryThreshold) {
-        validate(deliveryFeeAmount, freeDeliveryThreshold);
-        this.deliveryFeeAmount = deliveryFeeAmount;
+    /** 배달료·무료 기준 금액 수정 */
+    public void update(Money deliveryFee, Money freeDeliveryThreshold) {
+        this.deliveryFee          = deliveryFee;
         this.freeDeliveryThreshold = freeDeliveryThreshold;
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt            = LocalDateTime.now();
     }
 
-    private static void validate(long deliveryFeeAmount, long freeDeliveryThreshold) {
-        if (deliveryFeeAmount < 0) throw new IllegalArgumentException("배달료는 0원 이상이어야 합니다.");
-        if (freeDeliveryThreshold < 0) throw new IllegalArgumentException("무료배달 기준금액은 0원 이상이어야 합니다.");
+    /** 주문 금액에 따라 배달료 반환. 무료 기준 이상이면 0원 */
+    public Money calculateFee(Money productTotal) {
+        if (productTotal.isGreaterThanOrEqualTo(freeDeliveryThreshold)) return Money.zero();
+        return deliveryFee;
     }
 }

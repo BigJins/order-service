@@ -7,6 +7,7 @@ import jakarta.persistence.Embedded;
 
 import static java.util.Objects.requireNonNull;
 
+/** 주문 항목 값 객체. 상품 1종의 단가·수량 및 주문 시점 스냅샷을 담는다. */
 @Embeddable
 public record OrderLine(
         @Column(name = "product_id", nullable = false)
@@ -34,10 +35,12 @@ public record OrderLine(
 
     }
 
+    /** 행 금액 = 단가 × 수량 */
     public Money lineAmount() {
         return unitPrice.multiply(quantity);
     }
 
+    /** 상품명 공백 제거 및 길이 검증 */
     private static String normalizeRequired(String productNameSnapshot) {
         requireNonNull(productNameSnapshot);
         String trimmed = productNameSnapshot.trim();
