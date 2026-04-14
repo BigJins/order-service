@@ -9,5 +9,6 @@ kafka:
     order-paid: order.paid.v1
     delivery-completed: delivery.completed.v1
     order-canceled: order.canceled.v1
+    order-reserve-failed: order.reserve.failed.v1
   consumer:
     group-id: order-service-test
