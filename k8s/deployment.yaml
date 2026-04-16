@@ -36,9 +36,15 @@ spec:
             - name: DB_NAME
               value: "order"
             - name: DB_USER
-              value: "myuser"
+              valueFrom:
+                secretKeyRef:
+                  name: order-db-secret
+                  key: username
             - name: DB_PASSWORD
-              value: "order111"
+              valueFrom:
+                secretKeyRef:
+                  name: order-db-secret
+                  key: password
             - name: TEMPO_ENDPOINT
               value: "http://43.200.2.221:4318/v1/traces"
             - name: LOKI_URL
