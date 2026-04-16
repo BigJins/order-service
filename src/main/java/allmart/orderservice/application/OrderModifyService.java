@@ -1,11 +1,11 @@
 package allmart.orderservice.application;
 
+import allmart.orderservice.application.command.OrderCommandUseCase;
 import allmart.orderservice.application.event.canceled.OrderCanceledEvent;
 import allmart.orderservice.application.event.confirmed.OrderConfirmedEvent;
 import allmart.orderservice.application.event.created.OrderCreatedEvent;
 import allmart.orderservice.application.event.failed.OrderPaymentFailedEvent;
 import allmart.orderservice.application.event.paid.OrderPaidEvent;
-import allmart.orderservice.application.provided.OrderCreator;
 import allmart.orderservice.application.required.MartDeliveryConfigRepository;
 import allmart.orderservice.application.required.OrderRepository;
 import allmart.orderservice.application.required.ProductPort;
@@ -26,15 +26,16 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 주문 생성 및 상태 전이 유스케이스 구현체.
- * 도메인 이벤트를 발행하고, @TransactionalEventListener 핸들러가 결제 수단별 Outbox 저장과 재고 처리를 담당한다.
+ * 주문 Command 유스케이스 구현체 — OrderCommandUseCase.
+ * Zero Payload 도메인 이벤트를 발행하고, @TransactionalEventListener 핸들러가
+ * DB에서 Order를 재조회하여 Outbox 저장과 외부 이벤트 발행을 담당한다.
  */
 @Slf4j
 @Service
 @Transactional
 @Validated
 @RequiredArgsConstructor
-public class OrderModifyService implements OrderCreator {
+public class OrderModifyService implements OrderCommandUseCase {
 
     private final OrderRepository orderRepository;
     private final MartDeliveryConfigRepository martDeliveryConfigRepository;
@@ -44,7 +45,7 @@ public class OrderModifyService implements OrderCreator {
     /**
      * 주문 생성 — 배달 설정 조회 → 가격 검증 → Order 저장 → OrderCreatedEvent 발행.
      * 재고 예약은 inventory-service가 order.created.v1을 소비하여 비동기 처리.
-     * 이후 Outbox 저장은 @TransactionalEventListener 핸들러가 담당.
+     * Outbox 저장은 @TransactionalEventListener 핸들러가 담당.
      */
     @Override
     public Order create(OrderCreateRequest req) {
@@ -62,7 +63,8 @@ public class OrderModifyService implements OrderCreator {
                 saved.getId(), saved.getTossOrderId(), saved.getBuyerId(),
                 saved.getPayMethod(), saved.getTotalAmount().amount(), saved.getStatus());
 
-        eventPublisher.publishEvent(new OrderCreatedEvent(saved));
+        // Zero Payload — orderId + payMethod만 전달
+        eventPublisher.publishEvent(new OrderCreatedEvent(saved.getId(), saved.getPayMethod()));
         return saved;
     }
 
@@ -71,7 +73,7 @@ public class OrderModifyService implements OrderCreator {
     public void applyPaid(String tossOrderId, String paymentKey, Money amount) {
         findByTossOrderId(tossOrderId).ifPresent(order -> {
             order.markAsPaid(amount);
-            eventPublisher.publishEvent(new OrderPaidEvent(order));
+            eventPublisher.publishEvent(new OrderPaidEvent(order.getId()));
             log.info("결제 완료: tossOrderId={}, orderId={}, buyerId={}, amount={}", tossOrderId, order.getId(), order.getBuyerId(), amount);
         });
     }
@@ -81,7 +83,7 @@ public class OrderModifyService implements OrderCreator {
     public void applyPaymentFailed(String tossOrderId, String paymentKey, Money amount) {
         findByTossOrderId(tossOrderId).ifPresent(order -> {
             order.markPaymentFailed();
-            eventPublisher.publishEvent(new OrderPaymentFailedEvent(order));
+            eventPublisher.publishEvent(new OrderPaymentFailedEvent(order.getId()));
             log.warn("결제 실패: tossOrderId={}, orderId={}, buyerId={}", tossOrderId, order.getId(), order.getBuyerId());
         });
     }
@@ -92,7 +94,7 @@ public class OrderModifyService implements OrderCreator {
         orderRepository.findDetailById(orderId).ifPresentOrElse(
                 order -> {
                     order.markAsCompleted();
-                    eventPublisher.publishEvent(new OrderConfirmedEvent(order));
+                    eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId()));
                     log.info("배달 완료 → 주문 CONFIRMED: orderId={}, buyerId={}", orderId, order.getBuyerId());
                 },
                 () -> log.warn("Kafka 메시지 무시 — 존재하지 않는 orderId: {}", orderId)
@@ -116,7 +118,7 @@ public class OrderModifyService implements OrderCreator {
         Order order = orderRepository.findDetailById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
         order.cancel(buyerId);
-        eventPublisher.publishEvent(new OrderCanceledEvent(order));
+        eventPublisher.publishEvent(new OrderCanceledEvent(order.getId()));
         log.info("주문 취소: orderId={}, buyerId={}, tossOrderId={}", orderId, buyerId, order.getTossOrderId());
     }
 
@@ -125,7 +127,7 @@ public class OrderModifyService implements OrderCreator {
     public void cancelByReserveFailed(String tossOrderId) {
         findByTossOrderId(tossOrderId).ifPresent(order -> {
             order.cancelBySystem();
-            eventPublisher.publishEvent(new OrderCanceledEvent(order));
+            eventPublisher.publishEvent(new OrderCanceledEvent(order.getId()));
             log.warn("재고 부족으로 주문 자동 취소: tossOrderId={}, orderId={}", tossOrderId, order.getId());
         });
     }
@@ -157,5 +159,4 @@ public class OrderModifyService implements OrderCreator {
                 })
                 .toList();
     }
-
 }

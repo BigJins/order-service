@@ -13,6 +13,8 @@ spec:
       labels:
         app: order-service
     spec:
+      imagePullSecrets:
+        - name: ecr-secret
       containers:
         - name: order-service
           image: 646596232446.dkr.ecr.ap-northeast-2.amazonaws.com/order-service:latest

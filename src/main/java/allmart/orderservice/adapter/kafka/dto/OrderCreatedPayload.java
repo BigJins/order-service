@@ -57,7 +57,7 @@ public record OrderCreatedPayload(
                 .toList();
 
         // 현재 상태 기준으로 statusHistory 재구성 (Order 엔티티에 이력 컬럼이 없으므로 타임스탬프로 추론)
-        var initialStatus = order.getPayMethod() == allmart.orderservice.domain.order.OrderPayMethod.CASH_ON_DELIVERY
+        var initialStatus = order.getPayMethod().isOnDeliveryPayment()
                 ? "PAID" : "PENDING_PAYMENT";
         var statusHistory = new java.util.ArrayList<StatusHistoryDto>();
         statusHistory.add(new StatusHistoryDto(initialStatus, order.getCreatedAt()));

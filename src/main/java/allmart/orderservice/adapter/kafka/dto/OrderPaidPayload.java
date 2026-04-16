@@ -66,7 +66,7 @@ public record OrderPaidPayload(
                 .map(cl -> new ChargeLineDto(cl.type().name(), cl.amount().amount()))
                 .toList();
 
-        var initialStatus = order.getPayMethod() == OrderPayMethod.CASH_ON_DELIVERY ? "PAID" : "PENDING_PAYMENT";
+        var initialStatus = order.getPayMethod().isOnDeliveryPayment() ? "PAID" : "PENDING_PAYMENT";
         var history = new ArrayList<StatusHistoryDto>();
         history.add(new StatusHistoryDto(initialStatus, order.getCreatedAt()));
         if (order.getPaidAt() != null && !"PAID".equals(initialStatus)) {

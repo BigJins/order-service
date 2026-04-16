@@ -1,7 +1,7 @@
 package allmart.orderservice.adapter.kafka.consumer;
 
 import allmart.orderservice.adapter.kafka.dto.PaymentResultMessage;
-import allmart.orderservice.application.provided.OrderCreator;
+import allmart.orderservice.application.command.OrderCommandUseCase;
 import allmart.orderservice.domain.order.Money;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 public class PaymentResultConsumer {
 
     private final ObjectMapper objectMapper;
-    private final OrderCreator orderCreator;
+    private final OrderCommandUseCase orderCommandUseCase;
 
     /** 결제 결과 메시지 수신 — Debezium envelope 처리 후 상태 전이 위임 */
     @KafkaListener(topics = "${kafka.topics.payment-result}", groupId = "${kafka.consumer.group-id:order-service}")
@@ -30,9 +30,9 @@ public class PaymentResultConsumer {
 
         Money amount = Money.of(msg.amount());
         if (msg.isFailed()) {
-            orderCreator.applyPaymentFailed(msg.tossOrderId(), msg.paymentKey(), amount);
+            orderCommandUseCase.applyPaymentFailed(msg.tossOrderId(), msg.paymentKey(), amount);
         } else {
-            orderCreator.applyPaid(msg.tossOrderId(), msg.paymentKey(), amount);
+            orderCommandUseCase.applyPaid(msg.tossOrderId(), msg.paymentKey(), amount);
         }
     }
 
@@ -40,7 +40,6 @@ public class PaymentResultConsumer {
     private PaymentResultMessage parseMessage(String value) {
         try {
             var root = objectMapper.readTree(value);
-            // Debezium EventRouter: payload 필드가 있으면 그 값을, 없으면 전체 메시지를 파싱
             String payload = root.has("payload") ? root.get("payload").asText() : value;
             return objectMapper.readValue(payload, PaymentResultMessage.class);
         } catch (Exception e) {

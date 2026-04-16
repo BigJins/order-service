@@ -96,6 +96,9 @@
             <basic name="martId">
                 <column name="mart_id" nullable="false" unique="true"/>
             </basic>
+            <basic name="updatedAt">
+                <column name="updated_at" nullable="false"/>
+            </basic>
             <embedded name="deliveryFee">
                 <attribute-override name="amount">
                     <column name="delivery_fee_amount" nullable="false"/>
@@ -106,9 +109,6 @@
                     <column name="free_delivery_threshold" nullable="false"/>
                 </attribute-override>
             </embedded>
-            <basic name="updatedAt">
-                <column name="updated_at" nullable="false"/>
-            </basic>
         </attributes>
     </entity>
 
@@ -131,6 +131,9 @@
             </basic>
             <basic name="createdAt">
                 <column name="created_at" nullable="false" updatable="false"/>
+            </basic>
+            <basic name="publishedAt">
+                <column name="published_at"/>
             </basic>
         </attributes>
     </entity>

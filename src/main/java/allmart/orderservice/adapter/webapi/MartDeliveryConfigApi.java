@@ -18,10 +18,20 @@ public class MartDeliveryConfigApi {
 
     private final MartDeliveryConfigService martDeliveryConfigService;
 
-    /** 배달 설정 조회 — 없으면 404 */
+    /** 배달 설정 조회 — 판매자 전용, 없으면 404 */
     @GetMapping
     public ResponseEntity<MartDeliveryConfigResponse> get(
             @RequestHeader("X-User-Id") Long martId) {
+        return martDeliveryConfigService.find(martId)
+                .map(MartDeliveryConfigResponse::from)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** 배달 설정 공개 조회 — 소비자 앱에서 martId로 직접 호출, 인증 불필요. 없으면 404 */
+    @GetMapping("/{martId}")
+    public ResponseEntity<MartDeliveryConfigResponse> getByMartId(
+            @PathVariable Long martId) {
         return martDeliveryConfigService.find(martId)
                 .map(MartDeliveryConfigResponse::from)
                 .map(ResponseEntity::ok)

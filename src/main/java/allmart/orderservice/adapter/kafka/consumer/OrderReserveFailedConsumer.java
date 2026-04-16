@@ -1,7 +1,7 @@
 package allmart.orderservice.adapter.kafka.consumer;
 
 import allmart.orderservice.adapter.kafka.dto.OrderReserveFailedMessage;
-import allmart.orderservice.application.provided.OrderCreator;
+import allmart.orderservice.application.command.OrderCommandUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 public class OrderReserveFailedConsumer {
 
     private final ObjectMapper objectMapper;
-    private final OrderCreator orderCreator;
+    private final OrderCommandUseCase orderCommandUseCase;
 
     @KafkaListener(
             topics = "${kafka.topics.order-reserve-failed}",
@@ -28,7 +28,7 @@ public class OrderReserveFailedConsumer {
     public void onMessage(String value) {
         OrderReserveFailedMessage msg = parseMessage(value);
         log.warn("order.reserve.failed 수신 → 주문 자동 취소: tossOrderId={}", msg.tossOrderId());
-        orderCreator.cancelByReserveFailed(msg.tossOrderId());
+        orderCommandUseCase.cancelByReserveFailed(msg.tossOrderId());
     }
 
     /** Debezium EventRouter envelope 대응 */

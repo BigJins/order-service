@@ -1,5 +1,6 @@
 package allmart.orderservice.application.provided;
 
+import allmart.orderservice.application.command.OrderCommandUseCase;
 import allmart.orderservice.domain.order.*;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @Transactional
 @Import(ExternalClientTestConfig.class)
-record OrderCreatorTest(OrderCreator orderCreator, EntityManager entityManager) {
+record OrderCreatorTest(OrderCommandUseCase orderCommandUseCase, EntityManager entityManager) {
 
     @BeforeEach
     void setUp() {
@@ -35,7 +36,7 @@ record OrderCreatorTest(OrderCreator orderCreator, EntityManager entityManager) 
                 null
         );
 
-        Order order = orderCreator.create(req);
+        var order = orderCommandUseCase.create(req);
         assertThat(order.getId()).isNotNull();
         assertThat(order.getStatus()).isEqualTo(PENDING_PAYMENT);
         assertThat(order.getPayMethod()).isEqualTo(OrderPayMethod.CARD);
