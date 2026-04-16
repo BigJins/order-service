@@ -57,22 +57,31 @@ jobs:
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
+      - name: ECR 토큰 발급
+        id: ecr_token
+        run: echo "token=$(aws ecr get-login-password --region ap-northeast-2)" >> $GITHUB_OUTPUT
+
       - name: k3s 배포 (kubectl set image)
         uses: appleboy/ssh-action@v1
+        env:
+          ECR_TOKEN: ${{ steps.ecr_token.outputs.token }}
+          IMAGE_TAG: ${{ github.sha }}
         with:
           host: 3.36.78.100
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_TOKEN,IMAGE_TAG
           script: |
-            # ECR 로그인 후 이미지 pull (k3s가 ECR에서 pull할 수 있게)
-            aws ecr get-login-password --region ap-northeast-2 \
-              | sudo k3s ctr images pull --plain-http=false \
-              --user AWS:$(aws ecr get-login-password --region ap-northeast-2) \
-              646596232446.dkr.ecr.ap-northeast-2.amazonaws.com/order-service:latest || true
+            # ecr-secret 갱신 (GitHub Actions 러너에서 발급한 토큰 사용 — k3s master에 AWS CLI 불필요)
+            sudo kubectl create secret docker-registry ecr-secret \
+              --docker-server=646596232446.dkr.ecr.ap-northeast-2.amazonaws.com \
+              --docker-username=AWS \
+              --docker-password="$ECR_TOKEN" \
+              -n allmart --dry-run=client -o yaml | sudo kubectl apply -f -
 
             # 배포
             sudo kubectl apply -f /home/ubuntu/k8s/order-service.yaml
             sudo kubectl set image deployment/order-service \
-              order-service=646596232446.dkr.ecr.ap-northeast-2.amazonaws.com/order-service:${{ github.sha }} \
+              order-service=646596232446.dkr.ecr.ap-northeast-2.amazonaws.com/order-service:$IMAGE_TAG \
               -n allmart
-            sudo kubectl rollout status deployment/order-service -n allmart --timeout=120s
+            sudo kubectl rollout status deployment/order-service -n allmart --timeout=300s
