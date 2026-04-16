@@ -2,6 +2,10 @@ spring:
   cloud:
     config:
       enabled: false
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/order_test
+      auto-index-creation: false
 
 kafka:
   topics:

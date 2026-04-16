@@ -15,7 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-/** 주문 REST API 컨트롤러 — 주문 생성·재결제·취소(쓰기) + 주문 조회(읽기 — DB Replica) */
+/** 주문 REST API 컨트롤러 — 주문 생성·재결제·취소(쓰기) + 주문 조회(읽기 — MongoDB) */
 @RestController
 @RequiredArgsConstructor
 public class OrderApi {
@@ -63,16 +63,16 @@ public class OrderApi {
         orderCommandUseCase.cancelOrder(orderId, requireBuyerId(buyerIdFromGateway));
     }
 
-    // ── Query (읽기 — DB Replica) ──────────────────────────────────────
+    // ── Query (읽기 — MongoDB) ─────────────────────────────────────────
 
-    /** 주문 단건 상세 조회 (orderLines 포함, DB Replica) */
+    /** 주문 단건 상세 조회 (MongoDB 단일 도큐먼트) */
     @GetMapping("/api/orders/{orderId}")
     public OrderDetailResponse getOrder(@PathVariable Long orderId) {
-        return OrderDetailResponse.from(orderQueryUseCase.findById(orderId));
+        return orderQueryUseCase.findById(orderId);
     }
 
     /**
-     * 주문 목록 조회 (페이징, 최신 순, DB Replica).
+     * 주문 목록 조회 (페이징, 최신 순, MongoDB).
      * MEMBER(판매자) → 전체 주문 조회
      * CUSTOMER(구매자) → 본인 주문만 조회
      */
@@ -82,10 +82,9 @@ public class OrderApi {
             @RequestHeader(value = "X-User-Type", required = false) String userType,
             @PageableDefault(size = 100, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         if ("MEMBER".equals(userType)) {
-            return orderQueryUseCase.findAll(pageable).map(OrderDetailResponse::from);
+            return orderQueryUseCase.findAll(pageable);
         }
-        return orderQueryUseCase.findByBuyer(requireBuyerId(buyerIdFromGateway), pageable)
-                .map(OrderDetailResponse::from);
+        return orderQueryUseCase.findByBuyer(requireBuyerId(buyerIdFromGateway), pageable);
     }
 
     /** X-User-Id 헤더 필수 검증 — null이면 403 */

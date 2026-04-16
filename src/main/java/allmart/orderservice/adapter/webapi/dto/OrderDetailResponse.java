@@ -2,13 +2,14 @@ package allmart.orderservice.adapter.webapi.dto;
 
 import allmart.orderservice.domain.order.Order;
 import allmart.orderservice.domain.order.OrderStatus;
+import allmart.orderservice.domain.order.document.OrderDocument;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * 주문 상세 조회 응답 DTO.
- * order-query-service(MongoDB) 제거 후 order-service DB Replica에서 직접 조회.
+ * MySQL Order(레거시) 또는 MongoDB OrderDocument 양쪽에서 생성 가능.
  */
 public record OrderDetailResponse(
         Long orderId,
@@ -32,6 +33,7 @@ public record OrderDetailResponse(
         orderLines = List.copyOf(orderLines);
     }
 
+    /** MySQL Order → DTO (레거시 호환, 테스트에서 사용) */
     public static OrderDetailResponse from(Order order) {
         var ds = order.getDeliverySnapshot();
         var ms = order.getMartSnapshot();
@@ -56,6 +58,39 @@ public record OrderDetailResponse(
                 order.getPaidAt(),
                 order.getConfirmedAt(),
                 order.getCanceledAt()
+        );
+    }
+
+    /** MongoDB OrderDocument → DTO */
+    public static OrderDetailResponse from(OrderDocument doc) {
+        var ds = doc.getDeliverySnapshot();
+        var ms = doc.getMartSnapshot();
+        var lines = doc.getOrderLines().stream()
+                .map(ol -> new OrderLineResponse(
+                        ol.productId(),
+                        ol.productNameSnapshot(),
+                        ol.unitPrice(),
+                        ol.quantity(),
+                        ol.lineAmount()))
+                .toList();
+
+        return new OrderDetailResponse(
+                doc.getOrderId(),
+                doc.getTossOrderId(),
+                doc.getBuyerId(),
+                doc.getPayMethod(),
+                OrderStatus.valueOf(doc.getStatus()),
+                doc.getTotalAmount(),
+                ds.zipCode(),
+                ds.roadAddress(),
+                ds.detailAddress(),
+                ms.martId(),
+                ms.martName(),
+                lines,
+                doc.getCreatedAt(),
+                doc.getPaidAt(),
+                doc.getConfirmedAt(),
+                doc.getCanceledAt()
         );
     }
 }
