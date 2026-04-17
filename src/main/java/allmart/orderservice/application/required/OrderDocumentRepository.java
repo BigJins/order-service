@@ -14,4 +14,6 @@ public interface OrderDocumentRepository extends MongoRepository<OrderDocument, 
     Page<OrderDocument> findByBuyerIdOrderByCreatedAtDesc(Long buyerId, Pageable pageable);
 
     Page<OrderDocument> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    java.util.Optional<OrderDocument> findFirstByBuyerIdOrderByCreatedAtDesc(Long buyerId);
 }

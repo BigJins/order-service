@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -61,6 +62,19 @@ public class OrderApi {
             @PathVariable Long orderId,
             @RequestHeader(value = "X-User-Id", required = false) Long buyerIdFromGateway) {
         orderCommandUseCase.cancelOrder(orderId, requireBuyerId(buyerIdFromGateway));
+    }
+
+    // ── Internal (서비스 간 내부 호출 — Gateway 외부 차단) ──────────────
+
+    /**
+     * 구매자 최근 주문 조회 — chat-service 배송지 재사용 용도.
+     * Gateway denyAll()로 외부 직접 호출 차단됨.
+     */
+    @GetMapping("/internal/orders/recent")
+    public ResponseEntity<OrderDetailResponse> getRecentOrder(@RequestParam Long buyerId) {
+        return orderQueryUseCase.findRecentByBuyer(buyerId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     // ── Query (읽기 — MongoDB) ─────────────────────────────────────────

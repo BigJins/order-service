@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 /**
  * 주문 Query 서비스 — MongoDB 단일 도큐먼트 조회.
  * MySQL JOIN 없음. JPA 트랜잭션 불필요.
@@ -34,6 +36,12 @@ public class OrderQueryService implements OrderQueryUseCase {
     @Override
     public Page<OrderDetailResponse> findAll(Pageable pageable) {
         return documentRepository.findAllByOrderByCreatedAtDesc(pageable)
+                .map(OrderDetailResponse::from);
+    }
+
+    @Override
+    public Optional<OrderDetailResponse> findRecentByBuyer(Long buyerId) {
+        return documentRepository.findFirstByBuyerIdOrderByCreatedAtDesc(buyerId)
                 .map(OrderDetailResponse::from);
     }
 }
