@@ -70,6 +70,33 @@ public void markAsPaid(long confirmedAmount) {
 
 `spring.threads.virtual.enabled: true` — 100 VU 부하에서 플랫폼 스레드 121개 → 46개 감소 (실측)
 
+### CQRS — 조회 모델 분리 (k6 부하테스트 실측 근거)
+
+**문제 발견**: k6 혼합 부하(읽기 800 + 쓰기 150 RPS)에서 읽기/쓰기가 동일 HikariCP 풀을 공유해 고갈:
+
+```
+HikariPool-1 - Connection is not available
+  total=3, active=3, idle=0, waiting=161
+```
+
+| 부하 조건 | 읽기 P95 | 에러율 |
+|-----------|----------|--------|
+| smoke (읽기 5 + 쓰기 2 RPS) | 67ms | 0% |
+| 최대 (읽기 800 + 쓰기 150 RPS) | **3,920ms (58배)** | 98.86% |
+
+**해결**: 쓰기는 MySQL+Outbox 유지, 조회는 Kafka → MongoDB Sink → MongoDB 도큐먼트로 분리.
+
+| 항목 | MySQL 단일 (pool=3) | CQRS (pool=10) |
+|------|--------------------|----------------|
+| 읽기 P95 | 9,990ms (타임아웃) | **153ms** |
+| 읽기 에러율 | 97.02% | **0.00%** |
+| 테스트 시간 내 주문 생성 완료 | ~400건 | **3,535건** |
+
+> ⚠️ 위 비교는 pool 크기가 달라 조건이 동일하지 않다. 공정 비교(MySQL+인덱스+pool=10) 기준으로는 5~10배 개선이 현실적 수치. 쓰기 에러율은 잔존하며 원인은 order→product 동기 호출 체인 — Circuit Breaker 도입 예정.
+> 전체 테스트 조건·과정: [docs/load-test.md](docs/load-test.md)
+
+트레이드오프: eventual consistency — 결제 직후 조회가 짧은 시간 이전 상태를 보일 수 있음. 주문 조회 도메인에서 허용 가능하다고 판단.
+
 ---
 
 ## 로컬 vs 운영 환경 차이
